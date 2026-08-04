@@ -52,6 +52,7 @@ export default async function handler(req, res) {
         );
 
 
+
         const {
             destination,
             check_in,
@@ -62,6 +63,8 @@ export default async function handler(req, res) {
             seniors
 
         } = req.body;
+
+
 
 
 
@@ -115,6 +118,7 @@ export default async function handler(req, res) {
             );
 
 
+
             if(pageToken){
 
                 serpUrl.searchParams.set(
@@ -125,16 +129,10 @@ export default async function handler(req, res) {
             }
 
 
+
             serpUrl.searchParams.set(
                 "api_key",
                 process.env.SERPAPI_KEY
-            );
-
-
-
-            console.log(
-                "SERP URL:",
-                serpUrl.toString()
             );
 
 
@@ -151,11 +149,14 @@ export default async function handler(req, res) {
 
 
 
+
+
         let allHotels = [];
 
 
 
         // FIRST PAGE
+
         let data = await fetchHotels();
 
 
@@ -177,6 +178,8 @@ export default async function handler(req, res) {
 
 
 
+
+
         let nextPageToken =
         data.serpapi_pagination?.next_page_token;
 
@@ -186,7 +189,9 @@ export default async function handler(req, res) {
 
 
 
+
         // GET MORE PAGES
+
         while(
             nextPageToken &&
             page < 5
@@ -229,6 +234,8 @@ export default async function handler(req, res) {
 
 
 
+
+
         console.log(
             "TOTAL HOTELS FOUND:",
             allHotels.length
@@ -236,11 +243,131 @@ export default async function handler(req, res) {
 
 
 
+
+
+
+        // ==================================
+        // GOOGLE PLACES EXACT ADDRESS LOOKUP
+        // ==================================
+
+
+        const hotelsWithAddresses =
+        await Promise.all(
+
+
+            allHotels.map(async(hotel)=>{
+
+
+                try{
+
+
+                    const placeResponse =
+                    await fetch(
+
+                        "https://places.googleapis.com/v1/places:searchText",
+
+                        {
+
+                            method:"POST",
+
+
+                            headers:{
+
+                                "Content-Type":
+                                "application/json",
+
+
+                                "X-Goog-Api-Key":
+                                process.env.GOOGLE_PLACES_KEY,
+
+
+                                "X-Goog-FieldMask":
+                                "places.formattedAddress,places.id"
+
+                            },
+
+
+                            body:JSON.stringify({
+
+                                textQuery:
+                                `${hotel.name} ${destination}`
+
+                            })
+
+
+                        }
+
+                    );
+
+
+
+                    const placeData =
+                    await placeResponse.json();
+
+
+
+
+                    if(
+                        placeData.places &&
+                        placeData.places.length
+                    ){
+
+
+                        const place =
+                        placeData.places[0];
+
+
+
+                        hotel.address =
+                        place.formattedAddress;
+
+
+
+                        hotel.google_place_id =
+                        place.id;
+
+
+
+                        hotel.maps_url =
+                        `https://www.google.com/maps/place/?q=place_id:${place.id}`;
+
+
+                    }
+
+
+
+                }
+                catch(error){
+
+
+                    console.log(
+                        "GOOGLE PLACE ERROR:",
+                        error.message
+                    );
+
+
+                }
+
+
+
+                return hotel;
+
+
+
+            })
+
+        );
+
+
+
+
+
         return res.status(200).json({
 
-            properties: allHotels
+            properties: hotelsWithAddresses
 
         });
+
 
 
 
