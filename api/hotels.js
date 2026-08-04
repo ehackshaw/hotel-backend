@@ -65,85 +65,182 @@ export default async function handler(req, res) {
 
 
 
-        const serpUrl = new URL(
-            "https://serpapi.com/search"
-        );
+        async function fetchHotels(pageToken=null){
 
 
-        serpUrl.searchParams.set(
-            "engine",
-            "google_hotels"
-        );
+            const serpUrl = new URL(
+                "https://serpapi.com/search"
+            );
 
 
-        serpUrl.searchParams.set(
-            "q",
-            destination
-        );
+            serpUrl.searchParams.set(
+                "engine",
+                "google_hotels"
+            );
 
 
-        serpUrl.searchParams.set(
-            "check_in_date",
-            check_in
-        );
+            serpUrl.searchParams.set(
+                "q",
+                destination
+            );
 
 
-        serpUrl.searchParams.set(
-            "check_out_date",
-            check_out
-        );
+            serpUrl.searchParams.set(
+                "check_in_date",
+                check_in
+            );
 
 
-        serpUrl.searchParams.set(
-            "adults",
-            adults || 1
-        );
+            serpUrl.searchParams.set(
+                "check_out_date",
+                check_out
+            );
 
 
-        serpUrl.searchParams.set(
-            "children",
-            children || 0
-        );
+            serpUrl.searchParams.set(
+                "adults",
+                adults || 1
+            );
 
 
-        serpUrl.searchParams.set(
-            "rooms",
-            rooms || 1
-        );
+            serpUrl.searchParams.set(
+                "children",
+                children || 0
+            );
 
 
-        serpUrl.searchParams.set(
-            "api_key",
-            process.env.SERPAPI_KEY
-        );
+            serpUrl.searchParams.set(
+                "rooms",
+                rooms || 1
+            );
+
+
+            if(pageToken){
+
+                serpUrl.searchParams.set(
+                    "next_page_token",
+                    pageToken
+                );
+
+            }
+
+
+            serpUrl.searchParams.set(
+                "api_key",
+                process.env.SERPAPI_KEY
+            );
+
+
+
+            console.log(
+                "SERP URL:",
+                serpUrl.toString()
+            );
+
+
+
+            const response = await fetch(
+                serpUrl
+            );
+
+
+            return await response.json();
+
+
+        }
+
+
+
+        let allHotels = [];
+
+
+
+        // FIRST PAGE
+        let data = await fetchHotels();
 
 
 
         console.log(
-            "SERP URL:",
-            serpUrl.toString()
-        );
-
-
-
-        const response = await fetch(
-            serpUrl
-        );
-
-
-
-        const data = await response.json();
-
-
-
-        console.log(
-            "SERP DATA:",
+            "FIRST SERP DATA:",
             data
         );
 
 
 
-        return res.status(200).json(data);
+        if(data.properties){
+
+            allHotels.push(
+                ...data.properties
+            );
+
+        }
+
+
+
+        let nextPageToken =
+        data.serpapi_pagination?.next_page_token;
+
+
+
+        let page = 0;
+
+
+
+        // GET MORE PAGES
+        while(
+            nextPageToken &&
+            page < 5
+        ){
+
+
+            let nextData =
+            await fetchHotels(
+                nextPageToken
+            );
+
+
+
+            console.log(
+                "NEXT PAGE DATA:",
+                nextData
+            );
+
+
+
+            if(nextData.properties){
+
+                allHotels.push(
+                    ...nextData.properties
+                );
+
+            }
+
+
+
+            nextPageToken =
+            nextData.serpapi_pagination?.next_page_token;
+
+
+
+            page++;
+
+
+        }
+
+
+
+        console.log(
+            "TOTAL HOTELS FOUND:",
+            allHotels.length
+        );
+
+
+
+        return res.status(200).json({
+
+            properties: allHotels
+
+        });
 
 
 
