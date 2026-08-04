@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+export default async function handler(req,res){
 
 
 if(req.method !== "POST"){
@@ -10,8 +10,11 @@ error:"Method not allowed"
 }
 
 
-
 try{
+
+
+console.log("HOTEL REQUEST BODY:", req.body);
+
 
 
 const {
@@ -27,71 +30,103 @@ seniors
 
 
 
+if(!destination){
+
+return res.status(400).json({
+error:"Missing destination"
+});
+
+}
+
+
+
 const serpUrl = new URL(
 "https://serpapi.com/search"
 );
 
 
 
-serpUrl.searchParams.append(
+serpUrl.searchParams.set(
 "engine",
 "google_hotels"
 );
 
 
-serpUrl.searchParams.append(
+serpUrl.searchParams.set(
 "q",
 destination
 );
 
 
-serpUrl.searchParams.append(
+serpUrl.searchParams.set(
 "check_in_date",
 check_in.split("T")[0]
 );
 
 
-serpUrl.searchParams.append(
+serpUrl.searchParams.set(
 "check_out_date",
 check_out.split("T")[0]
 );
 
 
-serpUrl.searchParams.append(
+serpUrl.searchParams.set(
 "adults",
 adults || 1
 );
 
 
-serpUrl.searchParams.append(
+serpUrl.searchParams.set(
 "children",
 children || 0
 );
 
 
-serpUrl.searchParams.append(
+serpUrl.searchParams.set(
 "rooms",
 rooms || 1
 );
 
 
-serpUrl.searchParams.append(
+
+serpUrl.searchParams.set(
 "api_key",
 process.env.SERPAPI_KEY
 );
 
 
 
-const response = await fetch(
-serpUrl
+console.log(
+"SERP URL CREATED"
 );
+
+
+
+const response = await fetch(
+serpUrl.toString()
+);
+
+
+
+console.log(
+"SERP STATUS:",
+response.status
+);
+
 
 
 const data = await response.json();
 
 
 
-res.status(200).json(data);
+console.log(
+"SERP RESPONSE KEYS:",
+Object.keys(data)
+);
+
+
+
+return res.status(200).json(data);
 
 
 
@@ -99,12 +134,16 @@ res.status(200).json(data);
 catch(error){
 
 
-console.log(error);
+console.log(
+"HOTEL ERROR:",
+error
+);
 
-console.log("SERP HOTEL RESPONSE:", JSON.stringify(data,null,2));
-res.status(500).json({
 
-error:"Hotel search failed"
+return res.status(500).json({
+
+error:"Hotel search failed",
+details:error.message
 
 });
 
