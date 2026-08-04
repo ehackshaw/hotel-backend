@@ -1,158 +1,171 @@
-export default async function handler(req,res){
+export default async function handler(req, res) {
 
-console.log("METHOD:", req.method);
 
-console.log("BODY:", req.body);
+    // CORS HEADERS
+    res.setHeader(
+        "Access-Control-Allow-Origin",
+        "*"
+    );
 
+    res.setHeader(
+        "Access-Control-Allow-Methods",
+        "POST, OPTIONS"
+    );
 
-if(req.method !== "POST"){
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type"
+    );
 
-return res.status(405).json({
-error:"Method not allowed"
-});
 
-}
+    // HANDLE PREFLIGHT
+    if(req.method === "OPTIONS"){
 
+        return res.status(200).json({
+            success:true
+        });
 
-try{
+    }
 
 
-console.log("HOTEL REQUEST BODY:", req.body);
 
+    // ONLY ALLOW POST
+    if(req.method !== "POST"){
 
+        return res.status(405).json({
 
-const {
-destination,
-check_in,
-check_out,
-rooms,
-adults,
-children,
-seniors
+            error:"Method not allowed",
+            method:req.method
 
-}=req.body;
+        });
 
+    }
 
 
-if(!destination){
 
-return res.status(400).json({
-error:"Missing destination"
-});
+    try{
 
-}
 
+        console.log(
+            "REQUEST BODY:",
+            req.body
+        );
 
 
-const serpUrl = new URL(
-"https://serpapi.com/search"
-);
+        const {
+            destination,
+            check_in,
+            check_out,
+            rooms,
+            adults,
+            children,
+            seniors
 
+        } = req.body;
 
 
-serpUrl.searchParams.set(
-"engine",
-"google_hotels"
-);
 
+        const serpUrl = new URL(
+            "https://serpapi.com/search"
+        );
 
-serpUrl.searchParams.set(
-"q",
-destination
-);
 
+        serpUrl.searchParams.set(
+            "engine",
+            "google_hotels"
+        );
 
-serpUrl.searchParams.set(
-"check_in_date",
-check_in.split("T")[0]
-);
 
+        serpUrl.searchParams.set(
+            "q",
+            destination
+        );
 
-serpUrl.searchParams.set(
-"check_out_date",
-check_out.split("T")[0]
-);
 
+        serpUrl.searchParams.set(
+            "check_in_date",
+            check_in
+        );
 
-serpUrl.searchParams.set(
-"adults",
-adults || 1
-);
 
+        serpUrl.searchParams.set(
+            "check_out_date",
+            check_out
+        );
 
-serpUrl.searchParams.set(
-"children",
-children || 0
-);
 
+        serpUrl.searchParams.set(
+            "adults",
+            adults || 1
+        );
 
-serpUrl.searchParams.set(
-"rooms",
-rooms || 1
-);
 
+        serpUrl.searchParams.set(
+            "children",
+            children || 0
+        );
 
 
-serpUrl.searchParams.set(
-"api_key",
-process.env.SERPAPI_KEY
-);
+        serpUrl.searchParams.set(
+            "rooms",
+            rooms || 1
+        );
 
 
+        serpUrl.searchParams.set(
+            "api_key",
+            process.env.SERPAPI_KEY
+        );
 
-console.log(
-"SERP URL CREATED"
-);
 
 
+        console.log(
+            "SERP URL:",
+            serpUrl.toString()
+        );
 
-const response = await fetch(
-serpUrl.toString()
-);
 
 
+        const response = await fetch(
+            serpUrl
+        );
 
-console.log(
-"SERP STATUS:",
-response.status
-);
 
 
+        const data = await response.json();
 
-const data = await response.json();
 
 
+        console.log(
+            "SERP DATA:",
+            data
+        );
 
-console.log(
-"SERP RESPONSE KEYS:",
-Object.keys(data)
-);
 
 
+        return res.status(200).json(data);
 
-return res.status(200).json(data);
 
 
+    }
+    catch(error){
 
-}
-catch(error){
 
+        console.log(
+            "ERROR:",
+            error
+        );
 
-console.log(
-"HOTEL ERROR:",
-error
-);
 
+        return res.status(500).json({
 
-return res.status(500).json({
+            error:"Hotel search failed",
+            details:error.message
 
-error:"Hotel search failed",
-details:error.message
+        });
 
-});
 
-
-}
+    }
 
 
 }
