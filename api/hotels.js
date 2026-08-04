@@ -240,7 +240,37 @@ export default async function handler(req, res) {
             "TOTAL HOTELS FOUND:",
             allHotels.length
         );
+        
+        // ==================================
+// REMOVE HOTELS WITHOUT IMAGE OR PRICE
+// ==================================
 
+allHotels = allHotels.filter(hotel => {
+
+
+    const hasImage =
+    hotel.images &&
+    hotel.images.length > 0;
+
+
+
+    const hasPrice =
+    hotel.rate_per_night?.lowest ||
+    hotel.total_rate?.lowest ||
+    hotel.rate_per_night?.extracted_lowest;
+
+
+
+    return hasImage && hasPrice;
+
+
+});
+
+
+console.log(
+    "FILTERED HOTELS WITH IMAGE + PRICE:",
+    allHotels.length
+);
 
 
 
