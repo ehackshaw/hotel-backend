@@ -47,13 +47,13 @@ destination
 
 serpUrl.searchParams.append(
 "check_in_date",
-check_in
+check_in.split("T")[0]
 );
 
 
 serpUrl.searchParams.append(
 "check_out_date",
-check_out
+check_out.split("T")[0]
 );
 
 
@@ -101,7 +101,7 @@ catch(error){
 
 console.log(error);
 
-
+console.log("SERP HOTEL RESPONSE:", JSON.stringify(data,null,2));
 res.status(500).json({
 
 error:"Hotel search failed"
