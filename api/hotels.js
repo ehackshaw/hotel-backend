@@ -60,11 +60,49 @@ export default async function handler(req, res) {
             rooms,
             adults,
             children,
-            seniors
+            seniors,
+            input
 
         } = req.body;
 
+    // GOOGLE DESTINATION SEARCH
 
+if(input){
+
+    const googleURL = new URL(
+        "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+    );
+
+
+    googleURL.searchParams.set(
+        "input",
+        input
+    );
+
+
+    googleURL.searchParams.set(
+        "key",
+        process.env.GOOGLE_PLACES_KEY
+    );
+
+
+    googleURL.searchParams.set(
+        "types",
+        "(regions)"
+    );
+
+
+    const response = await fetch(
+        googleURL
+    );
+
+
+    const data = await response.json();
+
+
+    return res.status(200).json(data);
+
+}
 
 
 
