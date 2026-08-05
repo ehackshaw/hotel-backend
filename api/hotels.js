@@ -27,19 +27,20 @@ export default async function handler(req, res) {
 
     }
 
+// ALLOW GET FOR GOOGLE PLACES
+if(
+    req.method !== "POST" &&
+    req.method !== "GET"
+){
 
+    return res.status(405).json({
 
-    // ONLY ALLOW POST
-    if(req.method !== "POST"){
+        error:"Method not allowed",
+        method:req.method
 
-        return res.status(405).json({
+    });
 
-            error:"Method not allowed",
-            method:req.method
-
-        });
-
-    }
+}
 
 
 
@@ -53,17 +54,24 @@ export default async function handler(req, res) {
 
 
 
-        const {
-            destination,
-            check_in,
-            check_out,
-            rooms,
-            adults,
-            children,
-            seniors,
-            input
+        const input =
+req.method === "GET"
+?
+req.query.input
+:
+req.body.input;
 
-        } = req.body;
+
+const {
+    destination,
+    check_in,
+    check_out,
+    rooms,
+    adults,
+    children,
+    seniors
+
+} = req.body;
 
     // GOOGLE DESTINATION SEARCH
 
