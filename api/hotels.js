@@ -46,7 +46,8 @@ export default async function handler(req, res) {
 
             success: false,
 
-            error: "Method not allowed"
+            error:
+                "Method not allowed"
 
         });
 
@@ -56,10 +57,30 @@ export default async function handler(req, res) {
     try {
 
         console.log(
-            "REQUEST:",
-            req.method,
-            req.query,
+            "================================="
+        );
+
+        console.log(
+            "HOTEL BACKEND REQUEST"
+        );
+
+        console.log(
+            "METHOD:",
+            req.method
+        );
+
+        console.log(
+            "QUERY:",
+            req.query
+        );
+
+        console.log(
+            "BODY:",
             req.body
+        );
+
+        console.log(
+            "================================="
         );
 
 
@@ -67,61 +88,33 @@ export default async function handler(req, res) {
            INPUT
         ================================================= */
 
-        const input =
+        const inputData =
             req.method === "GET"
-                ? req.query?.input
-                : req.body?.input;
+                ? req.query || {}
+                : req.body || {};
 
 
         const action =
-            req.method === "GET"
-                ? req.query?.action
-                : req.body?.action;
+            inputData.action ||
+            "";
 
 
         /* =================================================
-           GOOGLE DESTINATION AUTOCOMPLETE
+           SERPAPI KEY CHECK
         ================================================= */
 
-        if (input) {
+        if (
+            !process.env.SERPAPI_KEY
+        ) {
 
-            const googleURL =
-                new URL(
-                    "https://maps.googleapis.com/maps/api/place/autocomplete/json"
-                );
+            return res.status(500).json({
 
+                success: false,
 
-            googleURL.searchParams.set(
-                "input",
-                input
-            );
+                error:
+                    "SERPAPI_KEY is not configured in Vercel."
 
-
-            googleURL.searchParams.set(
-                "key",
-                process.env.GOOGLE_PLACES_KEY
-            );
-
-
-            googleURL.searchParams.set(
-                "types",
-                "(regions)"
-            );
-
-
-            const response =
-                await fetch(
-                    googleURL
-                );
-
-
-            const data =
-                await response.json();
-
-
-            return res.status(200).json(
-                data
-            );
+            });
 
         }
 
@@ -135,8 +128,7 @@ export default async function handler(req, res) {
         ) {
 
             const propertyToken =
-                req.query?.property_token ||
-                req.body?.property_token;
+                inputData.property_token;
 
 
             if (!propertyToken) {
@@ -188,16 +180,46 @@ export default async function handler(req, res) {
 
 
             console.log(
+                "HOTEL DETAILS STATUS:",
+                response.status
+            );
+
+
+            console.log(
                 "HOTEL DETAILS RESPONSE:",
                 data
             );
+
+
+            if (
+                !response.ok ||
+                data.error
+            ) {
+
+                return res.status(
+                    response.ok
+                        ? 500
+                        : response.status
+                ).json({
+
+                    success: false,
+
+                    error:
+                        data.error ||
+                        `SerpAPI returned ${response.status}`
+
+                });
+
+            }
 
 
             return res.status(200).json({
 
                 success: true,
 
-                hotel: data
+                hotel:
+                    data.property ||
+                    data
 
             });
 
@@ -213,8 +235,7 @@ export default async function handler(req, res) {
         ) {
 
             const propertyToken =
-                req.query?.property_token ||
-                req.body?.property_token;
+                inputData.property_token;
 
 
             if (!propertyToken) {
@@ -265,6 +286,34 @@ export default async function handler(req, res) {
                 await response.json();
 
 
+            console.log(
+                "HOTEL REVIEWS RESPONSE:",
+                data
+            );
+
+
+            if (
+                !response.ok ||
+                data.error
+            ) {
+
+                return res.status(
+                    response.ok
+                        ? 500
+                        : response.status
+                ).json({
+
+                    success: false,
+
+                    error:
+                        data.error ||
+                        `SerpAPI returned ${response.status}`
+
+                });
+
+            }
+
+
             const property =
                 data.property ||
                 data;
@@ -292,49 +341,55 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           HOTEL SEARCH
+           HOTEL SEARCH INPUT
         ================================================= */
 
-        const inputData =
-            req.method === "GET"
-                ? req.query
-                : req.body;
-
-
         const destination =
-            inputData?.destination;
+            inputData.destination;
 
 
         const checkIn =
-            inputData?.check_in;
+            inputData.check_in;
 
 
         const checkOut =
-            inputData?.check_out;
+            inputData.check_out;
 
 
         const rooms =
-            Number(
-                inputData?.rooms
-            ) || 1;
+            Math.max(
+                1,
+                Number(
+                    inputData.rooms
+                ) || 1
+            );
 
 
         const adults =
-            Number(
-                inputData?.adults
-            ) || 1;
+            Math.max(
+                1,
+                Number(
+                    inputData.adults
+                ) || 1
+            );
 
 
         const children =
-            Number(
-                inputData?.children
-            ) || 0;
+            Math.max(
+                0,
+                Number(
+                    inputData.children
+                ) || 0
+            );
 
 
         const seniors =
-            Number(
-                inputData?.seniors
-            ) || 0;
+            Math.max(
+                0,
+                Number(
+                    inputData.seniors
+                ) || 0
+            );
 
 
         /* =================================================
@@ -383,6 +438,20 @@ export default async function handler(req, res) {
         }
 
 
+        console.log(
+            "HOTEL SEARCH:",
+            {
+                destination,
+                checkIn,
+                checkOut,
+                rooms,
+                adults,
+                children,
+                seniors
+            }
+        );
+
+
         /* =================================================
            SERPAPI HOTEL SEARCH
         ================================================= */
@@ -423,19 +492,19 @@ export default async function handler(req, res) {
 
             serpURL.searchParams.set(
                 "adults",
-                adults
+                String(adults)
             );
 
 
             serpURL.searchParams.set(
                 "children",
-                children
+                String(children)
             );
 
 
             serpURL.searchParams.set(
                 "rooms",
-                rooms
+                String(rooms)
             );
 
 
@@ -461,7 +530,19 @@ export default async function handler(req, res) {
                 );
 
 
-            if (!response.ok) {
+            const data =
+                await response.json();
+
+
+            console.log(
+                "SERPAPI STATUS:",
+                response.status
+            );
+
+
+            if (
+                !response.ok
+            ) {
 
                 throw new Error(
                     `SerpAPI returned ${response.status}`
@@ -470,13 +551,24 @@ export default async function handler(req, res) {
             }
 
 
-            return await response.json();
+            if (
+                data.error
+            ) {
+
+                throw new Error(
+                    data.error
+                );
+
+            }
+
+
+            return data;
 
         }
 
 
         /* =================================================
-           GET ALL HOTEL PAGES
+           GET HOTEL RESULTS
         ================================================= */
 
         let allHotels = [];
@@ -505,17 +597,22 @@ export default async function handler(req, res) {
         }
 
 
+        /* =================================================
+           GET ADDITIONAL PAGES
+        ================================================= */
+
         let nextPageToken =
             data.serpapi_pagination
                 ?.next_page_token;
 
 
-        let page = 0;
+        let page =
+            0;
 
 
         while (
             nextPageToken &&
-            page < 5
+            page < 2
         ) {
 
             const nextData =
@@ -559,6 +656,9 @@ export default async function handler(req, res) {
         allHotels.forEach(
             hotel => {
 
+                if (!hotel) return;
+
+
                 const key =
                     hotel.property_token ||
                     hotel.name;
@@ -594,20 +694,14 @@ export default async function handler(req, res) {
             allHotels.filter(
                 hotel => {
 
-                    const hasImage =
-                        hotel.images &&
-                        hotel.images.length > 0;
-
-
-                    const hasPrice =
-                        hotel.rate_per_night?.lowest ||
-                        hotel.total_rate?.lowest ||
-                        hotel.rate_per_night?.extracted_lowest;
+                    if (!hotel) {
+                        return false;
+                    }
 
 
                     return (
-                        hasImage &&
-                        hasPrice
+                        hotel.name ||
+                        hotel.property_token
                     );
 
                 }
@@ -615,104 +709,12 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           GOOGLE PLACES ADDRESS LOOKUP
-        ================================================= */
-
-        const hotelsWithAddresses =
-            await Promise.all(
-
-                allHotels.map(
-                    async hotel => {
-
-                        try {
-
-                            const placeResponse =
-                                await fetch(
-
-                                    "https://places.googleapis.com/v1/places:searchText",
-
-                                    {
-
-                                        method:
-                                            "POST",
-
-                                        headers: {
-
-                                            "Content-Type":
-                                                "application/json",
-
-                                            "X-Goog-Api-Key":
-                                                process.env.GOOGLE_PLACES_KEY,
-
-                                            "X-Goog-FieldMask":
-                                                "places.formattedAddress,places.id"
-
-                                        },
-
-                                        body:
-                                            JSON.stringify({
-
-                                                textQuery:
-                                                    `${hotel.name} ${destination}`
-
-                                            })
-
-                                        }
-
-                                    );
-
-                            const placeData =
-                                await placeResponse.json();
-
-
-                            if (
-                                placeData.places &&
-                                placeData.places.length
-                            ) {
-
-                                const place =
-                                    placeData.places[0];
-
-
-                                hotel.address =
-                                    place.formattedAddress;
-
-
-                                hotel.google_place_id =
-                                    place.id;
-
-
-                                hotel.maps_url =
-                                    `https://www.google.com/maps/place/?q=place_id:${place.id}`;
-
-                            }
-
-                        }
-                        catch (error) {
-
-                            console.error(
-                                "GOOGLE PLACE ERROR:",
-                                error.message
-                            );
-
-                        }
-
-
-                        return hotel;
-
-                    }
-                )
-
-            );
-
-
-        /* =================================================
-           RETURN RESULTS
+           FINAL RESPONSE
         ================================================= */
 
         console.log(
             "FINAL HOTEL COUNT:",
-            hotelsWithAddresses.length
+            allHotels.length
         );
 
 
@@ -729,8 +731,20 @@ export default async function handler(req, res) {
             check_out:
                 checkOut,
 
+            rooms:
+                rooms,
+
+            adults:
+                adults,
+
+            children:
+                children,
+
+            seniors:
+                seniors,
+
             properties:
-                hotelsWithAddresses
+                allHotels
 
         });
 
@@ -738,8 +752,19 @@ export default async function handler(req, res) {
     catch (error) {
 
         console.error(
-            "HOTEL BACKEND ERROR:",
+            "================================="
+        );
+
+        console.error(
+            "HOTEL BACKEND ERROR:"
+        );
+
+        console.error(
             error
+        );
+
+        console.error(
+            "================================="
         );
 
 
@@ -751,7 +776,8 @@ export default async function handler(req, res) {
                 "Hotel search failed",
 
             details:
-                error.message
+                error?.message ||
+                String(error)
 
         });
 
