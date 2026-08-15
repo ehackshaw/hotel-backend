@@ -1,8 +1,8 @@
 export default async function handler(req, res) {
 
-    /* =====================================================
+    /* =================================================
        CORS
-    ===================================================== */
+    ================================================= */
 
     res.setHeader(
         "Access-Control-Allow-Origin",
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
     res.setHeader(
         "Access-Control-Allow-Methods",
-        "POST, GET, OPTIONS"
+        "GET, POST, OPTIONS"
     );
 
     res.setHeader(
@@ -20,9 +20,9 @@ export default async function handler(req, res) {
     );
 
 
-    /* =====================================================
+    /* =================================================
        PREFLIGHT
-    ===================================================== */
+    ================================================= */
 
     if (req.method === "OPTIONS") {
 
@@ -33,22 +33,20 @@ export default async function handler(req, res) {
     }
 
 
-    /* =====================================================
+    /* =================================================
        METHOD CHECK
-    ===================================================== */
+    ================================================= */
 
     if (
-        req.method !== "POST" &&
-        req.method !== "GET"
+        req.method !== "GET" &&
+        req.method !== "POST"
     ) {
 
         return res.status(405).json({
 
             success: false,
 
-            error: "Method not allowed",
-
-            method: req.method
+            error: "Method not allowed"
 
         });
 
@@ -58,20 +56,10 @@ export default async function handler(req, res) {
     try {
 
         console.log(
-            "REQUEST METHOD:",
-            req.method
-        );
-
-
-        console.log(
-            "REQUEST BODY:",
+            "REQUEST:",
+            req.method,
+            req.query,
             req.body
-        );
-
-
-        console.log(
-            "REQUEST QUERY:",
-            req.query
         );
 
 
@@ -81,39 +69,14 @@ export default async function handler(req, res) {
 
         const input =
             req.method === "GET"
-                ? req.query.input
+                ? req.query?.input
                 : req.body?.input;
 
 
-        const body =
-            req.method === "POST"
-                ? req.body || {}
-                : req.query;
-
-
-        const {
-
-            destination,
-
-            check_in,
-
-            check_out,
-
-            rooms = 1,
-
-            adults = 1,
-
-            children = 0,
-
-            seniors = 0,
-
-            action = "search",
-
-            property_token,
-
-            next_page_token
-
-        } = body;
+        const action =
+            req.method === "GET"
+                ? req.query?.action
+                : req.body?.action;
 
 
         /* =================================================
@@ -168,28 +131,73 @@ export default async function handler(req, res) {
         ================================================= */
 
         if (
-            action === "details" &&
-            property_token
+            action === "details"
         ) {
 
-            return await getHotelDetails({
+            const propertyToken =
+                req.query?.property_token ||
+                req.body?.property_token;
 
-                propertyToken:
-                    property_token,
 
-                checkIn:
-                    check_in,
+            if (!propertyToken) {
 
-                checkOut:
-                    check_out,
+                return res.status(400).json({
 
-                adults,
+                    success: false,
 
-                children,
+                    error:
+                        "property_token is required"
 
-                rooms,
+                });
 
-                res
+            }
+
+
+            const serpURL =
+                new URL(
+                    "https://serpapi.com/search"
+                );
+
+
+            serpURL.searchParams.set(
+                "engine",
+                "google_hotels"
+            );
+
+
+            serpURL.searchParams.set(
+                "property_token",
+                propertyToken
+            );
+
+
+            serpURL.searchParams.set(
+                "api_key",
+                process.env.SERPAPI_KEY
+            );
+
+
+            const response =
+                await fetch(
+                    serpURL
+                );
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "HOTEL DETAILS RESPONSE:",
+                data
+            );
+
+
+            return res.status(200).json({
+
+                success: true,
+
+                hotel: data
 
             });
 
@@ -201,16 +209,82 @@ export default async function handler(req, res) {
         ================================================= */
 
         if (
-            action === "reviews" &&
-            property_token
+            action === "reviews"
         ) {
 
-            return await getHotelReviews({
+            const propertyToken =
+                req.query?.property_token ||
+                req.body?.property_token;
 
-                propertyToken:
-                    property_token,
 
-                res
+            if (!propertyToken) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "property_token is required"
+
+                });
+
+            }
+
+
+            const serpURL =
+                new URL(
+                    "https://serpapi.com/search"
+                );
+
+
+            serpURL.searchParams.set(
+                "engine",
+                "google_hotels"
+            );
+
+
+            serpURL.searchParams.set(
+                "property_token",
+                propertyToken
+            );
+
+
+            serpURL.searchParams.set(
+                "api_key",
+                process.env.SERPAPI_KEY
+            );
+
+
+            const response =
+                await fetch(
+                    serpURL
+                );
+
+
+            const data =
+                await response.json();
+
+
+            const property =
+                data.property ||
+                data;
+
+
+            return res.status(200).json({
+
+                success: true,
+
+                overall_rating:
+                    property.overall_rating ||
+                    0,
+
+                total_reviews:
+                    property.reviews ||
+                    0,
+
+                reviews:
+                    property.reviews ||
+                    []
 
             });
 
@@ -218,28 +292,53 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           HOTEL PHOTOS
+           HOTEL SEARCH
         ================================================= */
 
-        if (
-            action === "photos" &&
-            property_token
-        ) {
+        const inputData =
+            req.method === "GET"
+                ? req.query
+                : req.body;
 
-            return await getHotelPhotos({
 
-                propertyToken:
-                    property_token,
+        const destination =
+            inputData?.destination;
 
-                res
 
-            });
+        const checkIn =
+            inputData?.check_in;
 
-        }
+
+        const checkOut =
+            inputData?.check_out;
+
+
+        const rooms =
+            Number(
+                inputData?.rooms
+            ) || 1;
+
+
+        const adults =
+            Number(
+                inputData?.adults
+            ) || 1;
+
+
+        const children =
+            Number(
+                inputData?.children
+            ) || 0;
+
+
+        const seniors =
+            Number(
+                inputData?.seniors
+            ) || 0;
 
 
         /* =================================================
-           VALIDATE HOTEL SEARCH
+           VALIDATION
         ================================================= */
 
         if (!destination) {
@@ -249,35 +348,35 @@ export default async function handler(req, res) {
                 success: false,
 
                 error:
-                    "Missing destination."
+                    "destination is required"
 
             });
 
         }
 
 
-        if (!check_in) {
+        if (!checkIn) {
 
             return res.status(400).json({
 
                 success: false,
 
                 error:
-                    "Missing check-in date."
+                    "check_in is required"
 
             });
 
         }
 
 
-        if (!check_out) {
+        if (!checkOut) {
 
             return res.status(400).json({
 
                 success: false,
 
                 error:
-                    "Missing check-out date."
+                    "check_out is required"
 
             });
 
@@ -292,75 +391,57 @@ export default async function handler(req, res) {
             pageToken = null
         ) {
 
-            const serpUrl =
+            const serpURL =
                 new URL(
                     "https://serpapi.com/search"
                 );
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "engine",
                 "google_hotels"
             );
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "q",
                 destination
             );
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "check_in_date",
-                check_in
+                checkIn
             );
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "check_out_date",
-                check_out
+                checkOut
             );
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "adults",
-                adults || 1
+                adults
             );
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "children",
-                children || 0
+                children
             );
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "rooms",
-                rooms || 1
-            );
-
-
-            serpUrl.searchParams.set(
-                "currency",
-                "USD"
-            );
-
-
-            serpUrl.searchParams.set(
-                "hl",
-                "en"
-            );
-
-
-            serpUrl.searchParams.set(
-                "gl",
-                "us"
+                rooms
             );
 
 
             if (pageToken) {
 
-                serpUrl.searchParams.set(
+                serpURL.searchParams.set(
                     "next_page_token",
                     pageToken
                 );
@@ -368,7 +449,7 @@ export default async function handler(req, res) {
             }
 
 
-            serpUrl.searchParams.set(
+            serpURL.searchParams.set(
                 "api_key",
                 process.env.SERPAPI_KEY
             );
@@ -376,41 +457,46 @@ export default async function handler(req, res) {
 
             const response =
                 await fetch(
-                    serpUrl
+                    serpURL
                 );
 
 
-            const data =
-                await response.json();
+            if (!response.ok) {
+
+                throw new Error(
+                    `SerpAPI returned ${response.status}`
+                );
+
+            }
 
 
-            return data;
+            return await response.json();
 
         }
 
 
         /* =================================================
-           COLLECT ALL HOTEL PAGES
+           GET ALL HOTEL PAGES
         ================================================= */
 
         let allHotels = [];
 
-
-        /* =================================================
-           FIRST PAGE
-        ================================================= */
 
         let data =
             await fetchHotels();
 
 
         console.log(
-            "FIRST SERP DATA:",
+            "FIRST SERPAPI RESPONSE:",
             data
         );
 
 
-        if (data.properties) {
+        if (
+            Array.isArray(
+                data.properties
+            )
+        ) {
 
             allHotels.push(
                 ...data.properties
@@ -420,17 +506,12 @@ export default async function handler(req, res) {
 
 
         let nextPageToken =
-            data
-                .serpapi_pagination
+            data.serpapi_pagination
                 ?.next_page_token;
 
 
         let page = 0;
 
-
-        /* =================================================
-           ADDITIONAL PAGES
-        ================================================= */
 
         while (
             nextPageToken &&
@@ -443,14 +524,10 @@ export default async function handler(req, res) {
                 );
 
 
-            console.log(
-                `SERP PAGE ${page + 2}:`,
-                nextData
-            );
-
-
             if (
-                nextData.properties
+                Array.isArray(
+                    nextData.properties
+                )
             ) {
 
                 allHotels.push(
@@ -471,17 +548,11 @@ export default async function handler(req, res) {
         }
 
 
-        console.log(
-            "TOTAL HOTELS FOUND:",
-            allHotels.length
-        );
-
-
         /* =================================================
            REMOVE DUPLICATES
         ================================================= */
 
-        const hotelMap =
+        const uniqueHotels =
             new Map();
 
 
@@ -495,10 +566,10 @@ export default async function handler(req, res) {
 
                 if (
                     key &&
-                    !hotelMap.has(key)
+                    !uniqueHotels.has(key)
                 ) {
 
-                    hotelMap.set(
+                    uniqueHotels.set(
                         key,
                         hotel
                     );
@@ -511,12 +582,12 @@ export default async function handler(req, res) {
 
         allHotels =
             Array.from(
-                hotelMap.values()
+                uniqueHotels.values()
             );
 
 
         /* =================================================
-           REMOVE HOTELS WITHOUT IMAGE OR PRICE
+           FILTER HOTELS
         ================================================= */
 
         allHotels =
@@ -541,12 +612,6 @@ export default async function handler(req, res) {
 
                 }
             );
-
-
-        console.log(
-            "FILTERED HOTELS:",
-            allHotels.length
-        );
 
 
         /* =================================================
@@ -580,7 +645,7 @@ export default async function handler(req, res) {
                                                 process.env.GOOGLE_PLACES_KEY,
 
                                             "X-Goog-FieldMask":
-                                                "places.displayName,places.formattedAddress,places.id,places.location"
+                                                "places.formattedAddress,places.id"
 
                                         },
 
@@ -592,10 +657,9 @@ export default async function handler(req, res) {
 
                                             })
 
-                                    }
+                                        }
 
-                                );
-
+                                    );
 
                             const placeData =
                                 await placeResponse.json();
@@ -621,29 +685,12 @@ export default async function handler(req, res) {
                                 hotel.maps_url =
                                     `https://www.google.com/maps/place/?q=place_id:${place.id}`;
 
-
-                                if (
-                                    place.location
-                                ) {
-
-                                    hotel.google_coordinates = {
-
-                                        latitude:
-                                            place.location.latitude,
-
-                                        longitude:
-                                            place.location.longitude
-
-                                    };
-
-                                }
-
                             }
 
                         }
                         catch (error) {
 
-                            console.log(
+                            console.error(
                                 "GOOGLE PLACE ERROR:",
                                 error.message
                             );
@@ -654,56 +701,44 @@ export default async function handler(req, res) {
                         return hotel;
 
                     }
-
                 )
 
             );
 
 
         /* =================================================
-           FINAL RESPONSE
+           RETURN RESULTS
         ================================================= */
+
+        console.log(
+            "FINAL HOTEL COUNT:",
+            hotelsWithAddresses.length
+        );
+
 
         return res.status(200).json({
 
             success: true,
 
-            destination,
+            destination:
+                destination,
 
-            check_in,
+            check_in:
+                checkIn,
 
-            check_out,
-
-            rooms:
-
-                Number(rooms) || 1,
-
-            adults:
-
-                Number(adults) || 1,
-
-            children:
-
-                Number(children) || 0,
-
-            seniors:
-
-                Number(seniors) || 0,
-
-            total_results:
-                hotelsWithAddresses.length,
+            check_out:
+                checkOut,
 
             properties:
                 hotelsWithAddresses
 
         });
 
-
     }
     catch (error) {
 
         console.error(
-            "HOTEL API ERROR:",
+            "HOTEL BACKEND ERROR:",
             error
         );
 
@@ -713,335 +748,9 @@ export default async function handler(req, res) {
             success: false,
 
             error:
-                "Hotel search failed.",
+                "Hotel search failed",
 
             details:
-                error.message
-
-        });
-
-    }
-
-}
-
-
-/* =========================================================
-   HOTEL DETAILS
-========================================================= */
-
-async function getHotelDetails({
-
-    propertyToken,
-
-    checkIn,
-
-    checkOut,
-
-    adults,
-
-    children,
-
-    rooms,
-
-    res
-
-}) {
-
-    try {
-
-        const url =
-            new URL(
-                "https://serpapi.com/search"
-            );
-
-
-        url.searchParams.set(
-            "engine",
-            "google_hotels"
-        );
-
-
-        url.searchParams.set(
-            "property_token",
-            propertyToken
-        );
-
-
-        url.searchParams.set(
-            "api_key",
-            process.env.SERPAPI_KEY
-        );
-
-
-        if (checkIn) {
-
-            url.searchParams.set(
-                "check_in_date",
-                checkIn
-            );
-
-        }
-
-
-        if (checkOut) {
-
-            url.searchParams.set(
-                "check_out_date",
-                checkOut
-            );
-
-        }
-
-
-        url.searchParams.set(
-            "adults",
-            adults || 1
-        );
-
-
-        url.searchParams.set(
-            "children",
-            children || 0
-        );
-
-
-        url.searchParams.set(
-            "rooms",
-            rooms || 1
-        );
-
-
-        url.searchParams.set(
-            "currency",
-            "USD"
-        );
-
-
-        const response =
-            await fetch(url);
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            data.error
-        ) {
-
-            return res.status(500).json({
-
-                success: false,
-
-                error:
-                    data.error
-
-            });
-
-        }
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            hotel: data
-
-        });
-
-    }
-    catch (error) {
-
-        return res.status(500).json({
-
-            success: false,
-
-            error:
-                error.message
-
-        });
-
-    }
-
-}
-
-
-/* =========================================================
-   HOTEL REVIEWS
-========================================================= */
-
-async function getHotelReviews({
-
-    propertyToken,
-
-    res
-
-}) {
-
-    try {
-
-        const url =
-            new URL(
-                "https://serpapi.com/search"
-            );
-
-
-        url.searchParams.set(
-            "engine",
-            "google_hotels_reviews"
-        );
-
-
-        url.searchParams.set(
-            "property_token",
-            propertyToken
-        );
-
-
-        url.searchParams.set(
-            "api_key",
-            process.env.SERPAPI_KEY
-        );
-
-
-        const response =
-            await fetch(url);
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            data.error
-        ) {
-
-            return res.status(500).json({
-
-                success: false,
-
-                error:
-                    data.error
-
-            });
-
-        }
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            reviews:
-                data.reviews || [],
-
-            overall_rating:
-                data.overall_rating || null,
-
-            total_reviews:
-                data.total_reviews || 0
-
-        });
-
-    }
-    catch (error) {
-
-        return res.status(500).json({
-
-            success: false,
-
-            error:
-                error.message
-
-        });
-
-    }
-
-}
-
-
-/* =========================================================
-   HOTEL PHOTOS
-========================================================= */
-
-async function getHotelPhotos({
-
-    propertyToken,
-
-    res
-
-}) {
-
-    try {
-
-        const url =
-            new URL(
-                "https://serpapi.com/search"
-            );
-
-
-        url.searchParams.set(
-            "engine",
-            "google_hotels_photos"
-        );
-
-
-        url.searchParams.set(
-            "property_token",
-            propertyToken
-        );
-
-
-        url.searchParams.set(
-            "api_key",
-            process.env.SERPAPI_KEY
-        );
-
-
-        const response =
-            await fetch(url);
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            data.error
-        ) {
-
-            return res.status(500).json({
-
-                success: false,
-
-                error:
-                    data.error
-
-            });
-
-        }
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            photos:
-                data.photos || [],
-
-            sections:
-                data.sections || []
-
-        });
-
-    }
-    catch (error) {
-
-        return res.status(500).json({
-
-            success: false,
-
-            error:
                 error.message
 
         });
