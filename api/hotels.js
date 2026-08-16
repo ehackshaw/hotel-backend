@@ -227,15 +227,294 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-   HOTEL REVIEWS
-================================================= */
+           HOTEL REVIEWS
+        ================================================= */
 
-if (
-    action === "reviews"
-) {
+        if (
+            action === "reviews"
+        ) {
 
-    ...
-}
+            /* =============================================
+               PROPERTY TOKEN
+            ============================================= */
+
+            const propertyToken =
+                inputData.property_token;
+
+
+            if (!propertyToken) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "property_token is required"
+
+                });
+
+            }
+
+
+            /* =============================================
+               OPTIONAL PAGINATION
+            ============================================= */
+
+            const nextPageToken =
+                inputData.next_page_token ||
+                null;
+
+
+            /* =============================================
+               OPTIONAL SORT
+               
+               1 = Most helpful
+               2 = Most recent
+               3 = Highest score
+               4 = Lowest score
+               
+               Default:
+               Most recent
+            ============================================= */
+
+            const sortBy =
+                inputData.sort_by ||
+                "2";
+
+
+            /* =============================================
+               OPTIONAL LANGUAGE
+            ============================================= */
+
+            const language =
+                inputData.hl ||
+                "en";
+
+
+            /* =============================================
+               SERPAPI REVIEWS URL
+            ============================================= */
+
+            const serpURL =
+                new URL(
+                    "https://serpapi.com/search"
+                );
+
+
+            serpURL.searchParams.set(
+                "engine",
+                "google_hotels_reviews"
+            );
+
+
+            serpURL.searchParams.set(
+                "property_token",
+                propertyToken
+            );
+
+
+            serpURL.searchParams.set(
+                "sort_by",
+                String(sortBy)
+            );
+
+
+            serpURL.searchParams.set(
+                "hl",
+                language
+            );
+
+
+            /* =============================================
+               NEXT PAGE
+            ============================================= */
+
+            if (
+                nextPageToken
+            ) {
+
+                serpURL.searchParams.set(
+                    "next_page_token",
+                    nextPageToken
+                );
+
+            }
+
+
+            /* =============================================
+               OPTIONAL CATEGORY
+            ============================================= */
+
+            if (
+                inputData.category_token
+            ) {
+
+                serpURL.searchParams.set(
+                    "category_token",
+                    inputData.category_token
+                );
+
+            }
+
+
+            /* =============================================
+               OPTIONAL REVIEW SOURCE
+            ============================================= */
+
+            if (
+                inputData.source_number
+            ) {
+
+                serpURL.searchParams.set(
+                    "source_number",
+                    inputData.source_number
+                );
+
+            }
+
+
+            /* =============================================
+               SERPAPI KEY
+            ============================================= */
+
+            serpURL.searchParams.set(
+                "api_key",
+                process.env.SERPAPI_KEY
+            );
+
+
+            /* =============================================
+               LOG REQUEST WITHOUT API KEY
+            ============================================= */
+
+            console.log(
+                "FETCHING HOTEL REVIEWS:"
+            );
+
+            console.log(
+                serpURL.toString()
+                    .replace(
+                        process.env.SERPAPI_KEY,
+                        "HIDDEN"
+                    )
+            );
+
+
+            /* =============================================
+               FETCH REVIEWS
+            ============================================= */
+
+            const response =
+                await fetch(
+                    serpURL
+                );
+
+
+            const data =
+                await response.json();
+
+
+            /* =============================================
+               LOG RESPONSE
+            ============================================= */
+
+            console.log(
+                "HOTEL REVIEWS STATUS:",
+                response.status
+            );
+
+
+            console.log(
+                "HOTEL REVIEWS RESPONSE:",
+                data
+            );
+
+
+            /* =============================================
+               SERPAPI ERROR
+            ============================================= */
+
+            if (
+                !response.ok ||
+                data.error
+            ) {
+
+                return res.status(
+                    response.ok
+                        ? 500
+                        : response.status
+                ).json({
+
+                    success: false,
+
+                    error:
+                        data.error ||
+                        `SerpAPI returned ${response.status}`
+
+                });
+
+            }
+
+
+            /* =============================================
+               GET REVIEWS
+               
+               SerpAPI returns actual review objects
+               directly inside data.reviews
+            ============================================= */
+
+            const reviews =
+                Array.isArray(
+                    data.reviews
+                )
+                    ? data.reviews
+                    : [];
+
+
+            /* =============================================
+               PAGINATION INFORMATION
+            ============================================= */
+
+            const pagination =
+                data.serpapi_pagination ||
+                {};
+
+
+            const newNextPageToken =
+                pagination.next_page_token ||
+                null;
+
+
+            /* =============================================
+               RETURN REVIEWS
+            ============================================= */
+
+            return res.status(200).json({
+
+                success: true,
+
+                property_token:
+                    propertyToken,
+
+                reviews:
+                    reviews,
+
+                review_count:
+                    reviews.length,
+
+                next_page_token:
+                    newNextPageToken,
+
+                has_more:
+                    !!newNextPageToken,
+
+                search_metadata:
+                    data.search_metadata ||
+                    null
+
+            });
+
+        }
 
 
         /* =================================================
@@ -406,7 +685,9 @@ if (
             );
 
 
-            if (pageToken) {
+            if (
+                pageToken
+            ) {
 
                 serpURL.searchParams.set(
                     "next_page_token",
@@ -593,7 +874,9 @@ if (
                 hotel => {
 
                     if (!hotel) {
+
                         return false;
+
                     }
 
 
