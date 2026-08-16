@@ -227,117 +227,15 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           HOTEL REVIEWS
-        ================================================= */
+   HOTEL REVIEWS
+================================================= */
 
-        if (
-            action === "reviews"
-        ) {
+if (
+    action === "reviews"
+) {
 
-            const propertyToken =
-                inputData.property_token;
-
-
-            if (!propertyToken) {
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    error:
-                        "property_token is required"
-
-                });
-
-            }
-
-
-            const serpURL =
-                new URL(
-                    "https://serpapi.com/search"
-                );
-
-
-            serpURL.searchParams.set(
-                "engine",
-                "google_hotels"
-            );
-
-
-            serpURL.searchParams.set(
-                "property_token",
-                propertyToken
-            );
-
-
-            serpURL.searchParams.set(
-                "api_key",
-                process.env.SERPAPI_KEY
-            );
-
-
-            const response =
-                await fetch(
-                    serpURL
-                );
-
-
-            const data =
-                await response.json();
-
-
-            console.log(
-                "HOTEL REVIEWS RESPONSE:",
-                data
-            );
-
-
-            if (
-                !response.ok ||
-                data.error
-            ) {
-
-                return res.status(
-                    response.ok
-                        ? 500
-                        : response.status
-                ).json({
-
-                    success: false,
-
-                    error:
-                        data.error ||
-                        `SerpAPI returned ${response.status}`
-
-                });
-
-            }
-
-
-            const property =
-                data.property ||
-                data;
-
-
-            return res.status(200).json({
-
-                success: true,
-
-                overall_rating:
-                    property.overall_rating ||
-                    0,
-
-                total_reviews:
-                    property.reviews ||
-                    0,
-
-                reviews:
-                    property.reviews ||
-                    []
-
-            });
-
-        }
+    ...
+}
 
 
         /* =================================================
