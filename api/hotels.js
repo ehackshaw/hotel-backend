@@ -24,10 +24,12 @@ export default async function handler(req, res) {
     }
 
     if(req.method !== "GET"){
+
         return res.status(405).json({
             success:false,
             error:"Method not allowed"
         });
+
     }
 
 
@@ -45,9 +47,12 @@ export default async function handler(req, res) {
     if(!GOOGLE_KEY){
 
         return res.status(500).json({
+
             success:false,
+
             error:
                 "Google Places API key is missing. Add GOOGLE_PLACES_API_KEY to Vercel Environment Variables."
+
         });
 
     }
@@ -56,9 +61,12 @@ export default async function handler(req, res) {
     if(!SERP_KEY){
 
         return res.status(500).json({
+
             success:false,
+
             error:
                 "SerpApi key is missing. Add SERPAPI_KEY to Vercel Environment Variables."
+
         });
 
     }
@@ -124,6 +132,10 @@ export default async function handler(req, res) {
         );
 
 
+    /* =================================================
+       VALIDATION
+    ================================================= */
+
     if(!destination){
 
         return res.status(400).json({
@@ -161,6 +173,7 @@ export default async function handler(req, res) {
     );
 
     console.log({
+
         destination,
         checkin,
         checkout,
@@ -170,6 +183,7 @@ export default async function handler(req, res) {
         babies,
         seniors,
         guests
+
     });
 
 
@@ -212,7 +226,9 @@ export default async function handler(req, res) {
 
         }
 
+
         const R = 6371;
+
 
         const dLat =
             (
@@ -222,6 +238,7 @@ export default async function handler(req, res) {
             Math.PI /
             180;
 
+
         const dLon =
             (
                 Number(lon2) -
@@ -229,6 +246,7 @@ export default async function handler(req, res) {
             ) *
             Math.PI /
             180;
+
 
         const a =
             Math.sin(dLat / 2) ** 2
@@ -247,13 +265,16 @@ export default async function handler(req, res) {
             *
             Math.sin(dLon / 2) ** 2;
 
+
         return (
+
             2 *
             R *
             Math.atan2(
                 Math.sqrt(a),
                 Math.sqrt(1 - a)
             )
+
         );
 
     }
@@ -265,6 +286,7 @@ export default async function handler(req, res) {
             return "";
         }
 
+
         if(
             typeof value === "string"
         ){
@@ -272,6 +294,7 @@ export default async function handler(req, res) {
             return value;
 
         }
+
 
         if(
             typeof value === "object" &&
@@ -282,10 +305,15 @@ export default async function handler(req, res) {
 
         }
 
+
         return "";
 
     }
 
+
+    /* =================================================
+       AMENITIES
+    ================================================= */
 
     function getAmenities(place){
 
@@ -373,9 +401,7 @@ export default async function handler(req, res) {
         );
 
 
-        if(
-            place.parkingOptions
-        ){
+        if(place.parkingOptions){
 
             amenities.push(
                 "Parking"
@@ -384,9 +410,7 @@ export default async function handler(req, res) {
         }
 
 
-        if(
-            place.accessibilityOptions
-        ){
+        if(place.accessibilityOptions){
 
             amenities.push(
                 "Accessible"
@@ -395,9 +419,7 @@ export default async function handler(req, res) {
         }
 
 
-        if(
-            place.paymentOptions
-        ){
+        if(place.paymentOptions){
 
             amenities.push(
                 "Payment Options"
@@ -416,6 +438,52 @@ export default async function handler(req, res) {
 
 
     /* =================================================
+       GOOGLE PHOTO URL
+    ================================================= */
+
+    function createGooglePhotoUrl(
+        photoName
+    ){
+
+        if(
+            !photoName ||
+            typeof photoName !== "string"
+        ){
+
+            return "";
+
+        }
+
+
+        /*
+         * Google Places API (New)
+         *
+         * The photo resource is:
+         *
+         * places/PLACE_ID/photos/PHOTO_ID
+         *
+         * We convert it into a real
+         * browser-loadable media URL.
+         */
+
+        return (
+
+            "https://places.googleapis.com/v1/" +
+            photoName +
+            "/media" +
+            "?maxWidthPx=1200" +
+            "&maxHeightPx=900" +
+            "&key=" +
+            encodeURIComponent(
+                GOOGLE_KEY
+            )
+
+        );
+
+    }
+
+
+    /* =================================================
        GOOGLE PLACES
     ================================================= */
 
@@ -426,11 +494,18 @@ export default async function handler(req, res) {
 
     try{
 
+        /*
+         * IMPORTANT
+         *
+         * Keep this field mask conservative.
+         *
+         * This prevents one unsupported field
+         * from breaking the entire request.
+         */
+
         const googleFieldMask = [
 
             "places.id",
-
-            "places.name",
 
             "places.displayName",
 
@@ -513,7 +588,9 @@ export default async function handler(req, res) {
 
         const googleResponse =
             await fetch(
+
                 "https://places.googleapis.com/v1/places:searchText",
+
                 {
 
                     method:"POST",
@@ -546,6 +623,7 @@ export default async function handler(req, res) {
                         })
 
                 }
+
             );
 
 
@@ -554,6 +632,7 @@ export default async function handler(req, res) {
 
 
         let googleData = {};
+
 
         try{
 
@@ -581,10 +660,15 @@ export default async function handler(req, res) {
         if(!googleResponse.ok){
 
             googleError =
+
                 googleData?.error?.message ||
-                googleData?.error ||
+
+                googleData?.error?.status ||
+
                 googleData?.raw ||
+
                 `Google Places HTTP ${googleResponse.status}`;
+
 
             console.error(
                 "GOOGLE PLACES ERROR:",
@@ -595,16 +679,20 @@ export default async function handler(req, res) {
         else{
 
             googleHotels =
+
                 Array.isArray(
                     googleData.places
                 )
+
                 ?
+
                 googleData.places
+
                 :
+
                 [];
 
         }
-
 
     }
     catch(error){
@@ -682,6 +770,7 @@ export default async function handler(req, res) {
 
         let serpData = {};
 
+
         try{
 
             serpData =
@@ -708,9 +797,13 @@ export default async function handler(req, res) {
         if(!serpResponse.ok){
 
             serpError =
+
                 serpData?.error ||
+
                 serpData?.raw ||
+
                 `SerpApi HTTP ${serpResponse.status}`;
+
 
             console.error(
                 "SERPAPI ERROR:",
@@ -720,9 +813,7 @@ export default async function handler(req, res) {
         }
         else{
 
-            if(
-                serpData.error
-            ){
+            if(serpData.error){
 
                 serpError =
                     serpData.error;
@@ -731,12 +822,17 @@ export default async function handler(req, res) {
 
 
             serpHotels =
+
                 Array.isArray(
                     serpData.properties
                 )
+
                 ?
+
                 serpData.properties
+
                 :
+
                 [];
 
         }
@@ -761,6 +857,7 @@ export default async function handler(req, res) {
     ================================================= */
 
     const hotels =
+
         googleHotels.map(
             place => {
 
@@ -773,12 +870,12 @@ export default async function handler(req, res) {
                 const googleLat =
                     place.location?.latitude;
 
+
                 const googleLng =
                     place.location?.longitude;
 
 
-                let best =
-                    null;
+                let best = null;
 
                 let bestScore =
                     Infinity;
@@ -810,9 +907,13 @@ export default async function handler(req, res) {
 
 
                     const partial =
+
                         googleName.includes(
                             serpName
-                        ) ||
+                        )
+
+                        ||
+
                         serpName.includes(
                             googleName
                         );
@@ -835,6 +936,7 @@ export default async function handler(req, res) {
 
                             googleLat,
                             googleLng,
+
                             serpLat,
                             serpLng
 
@@ -845,6 +947,7 @@ export default async function handler(req, res) {
 
                         const score =
                             distance;
+
 
                         if(
                             score <
@@ -859,6 +962,7 @@ export default async function handler(req, res) {
 
                         }
 
+
                         continue;
 
                     }
@@ -872,6 +976,7 @@ export default async function handler(req, res) {
                         const score =
                             100 +
                             distance;
+
 
                         if(
                             score <
@@ -898,6 +1003,7 @@ export default async function handler(req, res) {
                 const rate =
                     best?.rate_per_night ||
                     {};
+
 
                 const total =
                     best?.total_rate ||
@@ -949,46 +1055,66 @@ export default async function handler(req, res) {
                    PHOTOS
                 ================================================= */
 
-                const photos =
+                const googlePhotos =
+
                     Array.isArray(
                         place.photos
                     )
+
                     ?
+
                     place.photos
+
+                    :
+
+                    [];
+
+
+                const photos =
+
+                    googlePhotos
                         .map(
                             photo => {
+
+                                const resourceName =
+                                    photo?.name ||
+                                    "";
+
+
+                                const url =
+                                    createGooglePhotoUrl(
+                                        resourceName
+                                    );
+
 
                                 return {
 
                                     name:
-                                        photo.name ||
-                                        "",
+                                        resourceName,
+
+                                    url:
+                                        url,
 
                                     width:
-                                        photo.widthPx ||
+                                        photo?.widthPx ||
                                         null,
 
                                     height:
-                                        photo.heightPx ||
+                                        photo?.heightPx ||
                                         null
 
                                 };
 
                             }
                         )
-                    :
-                    [];
+                        .filter(
+                            photo =>
+                                photo.url
+                        );
 
-
-                /*
-                 * Google photo resource.
-                 *
-                 * The frontend should not use this
-                 * directly as a normal image URL.
-                 */
 
                 const firstPhoto =
-                    photos[0]?.name ||
+                    photos[0]?.url ||
                     "";
 
 
@@ -1065,7 +1191,9 @@ export default async function handler(req, res) {
                         "",
 
                     types:
-                        Array.isArray(place.types)
+                        Array.isArray(
+                            place.types
+                        )
                         ?
                         place.types
                         :
@@ -1102,6 +1230,10 @@ export default async function handler(req, res) {
                     photos:
                         photos,
 
+                    /*
+                     * THIS IS NOW A REAL IMAGE URL.
+                     */
+
                     image:
                         firstPhoto,
 
@@ -1114,7 +1246,7 @@ export default async function handler(req, res) {
                         ),
 
 
-                    /* SERPAPI */
+                    /* SERPAPI PRICE */
 
                     price:{
 
@@ -1179,56 +1311,6 @@ export default async function handler(req, res) {
 
             }
         );
-
-
-    /* =================================================
-       NO GOOGLE RESULTS
-    ================================================= */
-
-    if(
-        !googleHotels.length
-    ){
-
-        return res.status(200).json({
-
-            success:true,
-
-            destination,
-
-            checkin,
-
-            checkout,
-
-            rooms,
-
-            adults,
-
-            children,
-
-            babies,
-
-            seniors,
-
-            guests,
-
-            count:0,
-
-            googleHotelCount:0,
-
-            serpApiHotelCount:
-                serpHotels.length,
-
-            googleApiError:
-                googleError,
-
-            serpApiError:
-                serpError,
-
-            hotels:[]
-
-        });
-
-    }
 
 
     /* =================================================
