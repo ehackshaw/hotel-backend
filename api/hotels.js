@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
     res.setHeader(
         "Access-Control-Allow-Methods",
-        "GET,OPTIONS"
+        "GET, OPTIONS"
     );
 
     res.setHeader(
@@ -21,26 +21,22 @@ export default async function handler(req, res) {
 
 
     if(req.method === "OPTIONS"){
-
         return res.status(200).end();
-
     }
 
 
     if(req.method !== "GET"){
 
         return res.status(405).json({
-
-            error:
-                "Method not allowed"
-
+            success:false,
+            error:"Method not allowed"
         });
 
     }
 
 
     /* =================================================
-       ENVIRONMENT
+       API KEYS
     ================================================= */
 
     const GOOGLE_KEY =
@@ -54,8 +50,10 @@ export default async function handler(req, res) {
 
         return res.status(500).json({
 
+            success:false,
+
             error:
-                "GOOGLE_PLACES_API_KEY is not configured"
+                "Google Places API key is missing. Add GOOGLE_PLACES_API_KEY to Vercel Environment Variables."
 
         });
 
@@ -66,8 +64,10 @@ export default async function handler(req, res) {
 
         return res.status(500).json({
 
+            success:false,
+
             error:
-                "SERPAPI_KEY is not configured"
+                "SerpApi key is missing. Add SERPAPI_KEY to Vercel Environment Variables."
 
         });
 
@@ -75,54 +75,137 @@ export default async function handler(req, res) {
 
 
     /* =================================================
-       QUERY PARAMETERS
+       READ SEARCH
     ================================================= */
 
-    const {
+    const destination =
+        String(
+            req.query.destination || ""
+        ).trim();
 
-        destination = "",
 
-        checkin = "",
+    const checkin =
+        String(
+            req.query.checkin || ""
+        ).trim();
 
-        checkout = "",
 
-        rooms = "1",
+    const checkout =
+        String(
+            req.query.checkout || ""
+        ).trim();
 
-        adults = "1",
 
-        children = "0",
+    const rooms =
+        Number(
+            req.query.rooms || 1
+        );
 
-        babies = "0",
 
-        seniors = "0",
+    const adults =
+        Number(
+            req.query.adults || 1
+        );
 
-        guests = "1"
 
-    } = req.query;
+    const children =
+        Number(
+            req.query.children || 0
+        );
+
+
+    const babies =
+        Number(
+            req.query.babies || 0
+        );
+
+
+    const seniors =
+        Number(
+            req.query.seniors || 0
+        );
+
+
+    const guests =
+        Number(
+            req.query.guests ||
+            adults ||
+            1
+        );
 
 
     if(!destination){
 
         return res.status(400).json({
 
+            success:false,
+
             error:
-                "destination is required"
+                "Destination is required."
 
         });
 
     }
 
 
+    if(!checkin){
+
+        return res.status(400).json({
+
+            success:false,
+
+            error:
+                "Check-in date is required."
+
+        });
+
+    }
+
+
+    if(!checkout){
+
+        return res.status(400).json({
+
+            success:false,
+
+            error:
+                "Check-out date is required."
+
+        });
+
+    }
+
+
+    console.log(
+        "HOTEL SEARCH:",
+        {
+            destination,
+            checkin,
+            checkout,
+            rooms,
+            adults,
+            children,
+            babies,
+            seniors,
+            guests
+        }
+    );
+
+
     /* =================================================
        HELPERS
     ================================================= */
 
-    function normalizeName(value){
+    function normalizeName(name){
 
-        return String(value || "")
+        return String(name || "")
             .toLowerCase()
             .replace(
                 /[^a-z0-9]+/g,
+                " "
+            )
+            .replace(
+                /\s+/g,
                 " "
             )
             .trim();
@@ -138,10 +221,10 @@ export default async function handler(req, res) {
     ){
 
         if(
-            !Number.isFinite(Number(lat1)) ||
-            !Number.isFinite(Number(lon1)) ||
-            !Number.isFinite(Number(lat2)) ||
-            !Number.isFinite(Number(lon2))
+            lat1 == null ||
+            lon1 == null ||
+            lat2 == null ||
+            lon2 == null
         ){
 
             return Infinity;
@@ -159,6 +242,7 @@ export default async function handler(req, res) {
             Math.PI /
             180;
 
+
         const dLon =
             (
                 Number(lon2) -
@@ -169,83 +253,74 @@ export default async function handler(req, res) {
 
 
         const a =
-            Math.sin(dLat / 2) ** 2 +
+
+            Math.sin(
+                dLat / 2
+            ) ** 2
+
+            +
 
             Math.cos(
                 Number(lat1) *
                 Math.PI /
                 180
-            ) *
+            )
+
+            *
 
             Math.cos(
                 Number(lat2) *
                 Math.PI /
                 180
-            ) *
+            )
 
-            Math.sin(dLon / 2) ** 2;
+            *
+
+            Math.sin(
+                dLon / 2
+            ) ** 2;
 
 
         return (
+
             2 *
             R *
             Math.atan2(
                 Math.sqrt(a),
                 Math.sqrt(1 - a)
             )
+
         );
 
     }
 
 
-    function getSummaryText(value){
+    function summaryText(value){
 
         if(!value){
             return "";
         }
 
-        if(typeof value === "string"){
-            return value;
-        }
 
         if(
-            value.text &&
-            typeof value.text === "string"
+            typeof value === "string"
+        ){
+
+            return value;
+
+        }
+
+
+        if(
+            value.text
         ){
 
             return value.text;
 
         }
 
+
         return "";
-
-    }
-
-
-    function getPhotoUrl(
-        photoName
-    ){
-
-        if(!photoName){
-            return "";
-        }
-
-        /*
-           This uses the Google Places photo
-           media endpoint.
-
-           The key is only used by the backend
-           while constructing the URL.
-        */
-
-        return (
-            "https://places.googleapis.com/v1/" +
-            photoName +
-            "/media?maxWidthPx=1200&key=" +
-            encodeURIComponent(
-                GOOGLE_KEY
-            )
-        );
 
     }
 
@@ -255,15 +330,12 @@ export default async function handler(req, res) {
         const amenities = [];
 
 
-        /*
-           Google Places boolean fields
-        */
-
         if(place.servesBreakfast){
             amenities.push(
                 "Breakfast"
             );
         }
+
 
         if(place.servesLunch){
             amenities.push(
@@ -271,11 +343,13 @@ export default async function handler(req, res) {
             );
         }
 
+
         if(place.servesDinner){
             amenities.push(
                 "Restaurant"
             );
         }
+
 
         if(place.servesCoffee){
             amenities.push(
@@ -283,11 +357,13 @@ export default async function handler(req, res) {
             );
         }
 
+
         if(place.servesVegetarianFood){
             amenities.push(
                 "Vegetarian Food"
             );
         }
+
 
         if(place.goodForChildren){
             amenities.push(
@@ -295,11 +371,13 @@ export default async function handler(req, res) {
             );
         }
 
+
         if(place.goodForGroups){
             amenities.push(
                 "Good for Groups"
             );
         }
+
 
         if(place.allowsDogs){
             amenities.push(
@@ -307,21 +385,17 @@ export default async function handler(req, res) {
             );
         }
 
+
         if(place.parkingOptions){
             amenities.push(
                 "Parking"
             );
         }
 
+
         if(place.accessibilityOptions){
             amenities.push(
                 "Accessible"
-            );
-        }
-
-        if(place.restroom){
-            amenities.push(
-                "Restrooms"
             );
         }
 
@@ -335,81 +409,23 @@ export default async function handler(req, res) {
     }
 
 
-    function getSerpPrice(property){
-
-        if(!property){
-            return null;
-        }
-
-
-        const nightly =
-            property.rate_per_night ||
-            {};
-
-        const total =
-            property.total_rate ||
-            {};
-
-
-        return {
-
-            ratePerNight:
-                nightly.lowest ||
-                "",
-
-            extractedRatePerNight:
-                nightly.extracted_lowest ??
-                null,
-
-            beforeTaxesPerNight:
-                nightly.before_taxes_fees ||
-                "",
-
-            total:
-                total.lowest ||
-                "",
-
-            extractedTotal:
-                total.extracted_lowest ??
-                null,
-
-            beforeTaxesTotal:
-                total.before_taxes_fees ||
-                "",
-
-            checkInTime:
-                property.check_in_time ||
-                "",
-
-            checkOutTime:
-                property.check_out_time ||
-                "",
-
-            freeCancellation:
-                property.free_cancellation ??
-                null
-
-        };
-
-    }
-
-
     /* =================================================
-       1. GOOGLE PLACES TEXT SEARCH
+       GOOGLE PLACES
     ================================================= */
 
-    let places = [];
+    let googleHotels = [];
 
 
     try{
 
-        const placesResponse =
+        const googleResponse =
             await fetch(
+
                 "https://places.googleapis.com/v1/places:searchText",
+
                 {
 
-                    method:
-                        "POST",
+                    method:"POST",
 
                     headers:{
 
@@ -419,16 +435,17 @@ export default async function handler(req, res) {
                         "X-Goog-Api-Key":
                             GOOGLE_KEY,
 
+                        /*
+                         * IMPORTANT:
+                         * Keep this field mask conservative.
+                         */
+
                         "X-Goog-FieldMask":
                             [
                                 "places.id",
-                                "places.name",
                                 "places.displayName",
                                 "places.formattedAddress",
                                 "places.location",
-                                "places.primaryType",
-                                "places.primaryTypeDisplayName",
-                                "places.types",
                                 "places.rating",
                                 "places.userRatingCount",
                                 "places.websiteUri",
@@ -436,25 +453,13 @@ export default async function handler(req, res) {
                                 "places.googleMapsUri",
                                 "places.photos",
                                 "places.editorialSummary",
-                                "places.generativeSummary",
-                                "places.reviews",
-                                "places.reviewSummary",
-                                "places.goodForChildren",
-                                "places.goodForGroups",
-                                "places.allowsDogs",
-                                "places.parkingOptions",
-                                "places.paymentOptions",
-                                "places.accessibilityOptions",
-                                "places.restroom",
-                                "places.servesBreakfast",
-                                "places.servesLunch",
-                                "places.servesDinner",
-                                "places.servesCoffee",
-                                "places.servesVegetarianFood",
+                                "places.types",
+                                "places.primaryType",
                                 "places.businessStatus"
                             ].join(",")
 
                     },
+
 
                     body:
                         JSON.stringify({
@@ -465,62 +470,81 @@ export default async function handler(req, res) {
                             languageCode:
                                 "en",
 
-                            regionCode:
-                                "TT",
-
-                            includedType:
-                                "hotel",
-
                             pageSize:
                                 20
 
                         })
 
                 }
+
             );
 
 
-        const placesData =
-            await placesResponse.json();
+        const googleData =
+            await googleResponse.json();
 
 
-        if(!placesResponse.ok){
+        console.log(
+            "GOOGLE STATUS:",
+            googleResponse.status
+        );
+
+
+        if(!googleResponse.ok){
 
             console.error(
-                "Google Places error:",
-                placesData
+                "GOOGLE PLACES ERROR:",
+                googleData
             );
 
-            throw new Error(
-                placesData.error?.message ||
-                "Google Places search failed"
-            );
+
+            return res.status(500).json({
+
+                success:false,
+
+                error:
+                    "Google Places request failed.",
+
+                googleError:
+                    googleData.error?.message ||
+                    googleData.error ||
+                    googleData
+
+            });
 
         }
 
 
-        places =
+        googleHotels =
             Array.isArray(
-                placesData.places
+                googleData.places
             )
             ?
-            placesData.places
+            googleData.places
             :
             [];
+
+
+        console.log(
+            "GOOGLE HOTELS FOUND:",
+            googleHotels.length
+        );
 
     }
     catch(error){
 
         console.error(
-            "Google Places:",
+            "GOOGLE FETCH ERROR:",
             error
         );
 
 
         return res.status(500).json({
 
+            success:false,
+
             error:
-                "Google Places search failed",
+                "Unable to connect to Google Places.",
 
             details:
                 error.message
@@ -531,10 +555,12 @@ export default async function handler(req, res) {
 
 
     /* =================================================
-       2. SERPAPI GOOGLE HOTELS
+       SERPAPI
     ================================================= */
 
-    let serpProperties = [];
+    let serpHotels = [];
+
+    let serpError = null;
 
 
     try{
@@ -577,8 +603,10 @@ export default async function handler(req, res) {
 
         const serpResponse =
             await fetch(
+
                 "https://serpapi.com/search?" +
                 serpParams.toString()
+
             );
 
 
@@ -586,17 +614,27 @@ export default async function handler(req, res) {
             await serpResponse.json();
 
 
+        console.log(
+            "SERPAPI STATUS:",
+            serpResponse.status
+        );
+
+
         if(!serpResponse.ok){
 
+            serpError =
+                serpData.error ||
+                `SerpApi HTTP ${serpResponse.status}`;
+
             console.error(
-                "SerpApi HTTP error:",
+                "SERPAPI ERROR:",
                 serpData
             );
 
         }
         else{
 
-            serpProperties =
+            serpHotels =
                 Array.isArray(
                     serpData.properties
                 )
@@ -607,274 +645,216 @@ export default async function handler(req, res) {
 
         }
 
+
+        console.log(
+            "SERPAPI HOTELS FOUND:",
+            serpHotels.length
+        );
+
     }
     catch(error){
 
-        /*
-           We deliberately do NOT fail the
-           entire hotel search if SerpApi
-           fails.
-
-           Google hotel information can still
-           be displayed.
-        */
+        serpError =
+            error.message;
 
         console.error(
-            "SerpApi error:",
+            "SERPAPI FETCH ERROR:",
             error
         );
-
-        serpProperties = [];
 
     }
 
 
     /* =================================================
-       3. MERGE GOOGLE + SERPAPI
+       MATCH GOOGLE + SERPAPI
     ================================================= */
 
-    const mergedHotels =
-        places.map(
+    const hotels =
+        googleHotels.map(
             place => {
 
-                const placeName =
+                const googleName =
                     normalizeName(
-                        place.displayName?.text ||
-                        ""
+                        place.displayName?.text
                     );
 
 
-                const placeLat =
+                const googleLat =
                     place.location?.latitude;
 
-                const placeLng =
+
+                const googleLng =
                     place.location?.longitude;
 
 
-                /*
-                   Find closest matching SerpApi
-                   hotel.
-
-                   Name is preferred.
-                   Coordinates provide a second
-                   layer of protection.
-                */
-
-                let bestMatch =
+                let best =
                     null;
 
                 let bestScore =
                     Infinity;
 
 
-                serpProperties.forEach(
-                    property => {
+                for(
+                    const serpHotel
+                    of serpHotels
+                ){
+
+                    if(
+                        !serpHotel.name
+                    ){
+
+                        continue;
+
+                    }
+
+
+                    const serpName =
+                        normalizeName(
+                            serpHotel.name
+                        );
+
+
+                    const exact =
+                        googleName ===
+                        serpName;
+
+
+                    const partial =
+                        googleName.includes(
+                            serpName
+                        ) ||
+                        serpName.includes(
+                            googleName
+                        );
+
+
+                    const distance =
+                        distanceKm(
+
+                            googleLat,
+
+                            googleLng,
+
+                            serpHotel
+                                .gps_coordinates
+                                ?.latitude,
+
+                            serpHotel
+                                .gps_coordinates
+                                ?.longitude
+
+                        );
+
+
+                    /*
+                     * Exact name is strongest.
+                     */
+
+                    if(exact){
+
+                        const score =
+                            distance;
 
                         if(
-                            !property ||
-                            !property.name
+                            score <
+                            bestScore
                         ){
 
-                            return;
+                            bestScore =
+                                score;
+
+                            best =
+                                serpHotel;
 
                         }
 
+                        continue;
 
-                        const serpName =
-                            normalizeName(
-                                property.name
-                            );
+                    }
 
 
-                        const nameMatch =
-                            placeName ===
-                            serpName;
+                    /*
+                     * Partial name + nearby.
+                     */
 
+                    if(
+                        partial &&
+                        distance <= 15
+                    ){
 
-                        const partialMatch =
-                            placeName.includes(
-                                serpName
-                            ) ||
-                            serpName.includes(
-                                placeName
-                            );
-
-
-                        const km =
-                            distanceKm(
-                                placeLat,
-                                placeLng,
-                                property.gps_coordinates?.latitude,
-                                property.gps_coordinates?.longitude
-                            );
-
-
-                        /*
-                           Strong exact name match
-                        */
-
-                        if(nameMatch){
-
-                            const score =
-                                km * 0.01;
-
-                            if(
-                                score <
-                                bestScore
-                            ){
-
-                                bestScore =
-                                    score;
-
-                                bestMatch =
-                                    property;
-
-                            }
-
-                            return;
-
-                        }
-
-
-                        /*
-                           Partial name + close coordinates
-                        */
+                        const score =
+                            100 +
+                            distance;
 
                         if(
-                            partialMatch &&
-                            km <= 10
+                            score <
+                            bestScore
                         ){
 
-                            const score =
-                                10 + km;
+                            bestScore =
+                                score;
 
-                            if(
-                                score <
-                                bestScore
-                            ){
-
-                                bestScore =
-                                    score;
-
-                                bestMatch =
-                                    property;
-
-                            }
+                            best =
+                                serpHotel;
 
                         }
 
                     }
-                );
+
+                }
 
 
-                const price =
-                    getSerpPrice(
-                        bestMatch
-                    );
+                /* =================================================
+                   PRICE
+                ================================================= */
+
+                const rate =
+                    best?.rate_per_night ||
+                    {};
 
 
-                /*
-                   Google description.
+                const total =
+                    best?.total_rate ||
+                    {};
 
-                   Google may return either
-                   editorialSummary or
-                   generativeSummary.
-                */
+
+                /* =================================================
+                   DESCRIPTION
+                ================================================= */
 
                 const description =
 
-                    getSummaryText(
-                        place.generativeSummary
-                    ) ||
-
-                    getSummaryText(
+                    summaryText(
                         place.editorialSummary
-                    ) ||
-
-                    "";
+                    );
 
 
-                /*
-                   Photos
+                /* =================================================
+                   PHOTOS
+                ================================================= */
 
-                   Google returns photo resource
-                   names. Convert the first few
-                   to media URLs.
-                */
-
-                const photos =
-                    Array.isArray(
-                        place.photos
-                    )
-                    ?
-                    place.photos
-                        .slice(0,10)
-                        .map(
-                            photo =>
-                                getPhotoUrl(
-                                    photo.name
-                                )
-                        )
-                        .filter(Boolean)
-                    :
-                    [];
-
-
-                /*
-                   Reviews
-                */
-
-                const reviews =
-                    Array.isArray(
-                        place.reviews
-                    )
-                    ?
-                    place.reviews
-                    :
-                    [];
-
-
-                /*
-                   Google review summary
-                */
-
-                const reviewSummary =
-                    place.reviewSummary ||
-                    null;
-
-
-                /*
-                   Normalize Google review
-                   distribution if available.
-                */
-
-                const ratings = [];
+                const photos = [];
 
 
                 if(
-                    reviewSummary &&
                     Array.isArray(
-                        reviewSummary.ratingCount
+                        place.photos
                     )
                 ){
 
-                    reviewSummary.ratingCount
+                    place.photos
                         .forEach(
-                            item => {
+                            photo => {
 
-                                ratings.push({
+                                if(
+                                    photo.name
+                                ){
 
-                                    stars:
-                                        Number(
-                                            item.rating
-                                        ),
+                                    photos.push(
+                                        photo.name
+                                    );
 
-                                    count:
-                                        Number(
-                                            item.count
-                                        )
-
-                                });
+                                }
 
                             }
                         );
@@ -882,11 +862,15 @@ export default async function handler(req, res) {
                 }
 
 
+                /* =================================================
+                   RETURN HOTEL
+                ================================================= */
+
                 return {
 
-                    /* =========================
-                       GOOGLE IDENTITY
-                    ========================= */
+                    /*
+                     * GOOGLE
+                     */
 
                     placeId:
                         place.id || "",
@@ -904,54 +888,12 @@ export default async function handler(req, res) {
                         "",
 
                     latitude:
-                        place.location?.latitude ??
+                        googleLat ??
                         null,
 
                     longitude:
-                        place.location?.longitude ??
+                        googleLng ??
                         null,
-
-                    primaryType:
-                        place.primaryType ||
-                        "",
-
-                    primaryTypeDisplayName:
-                        place.primaryTypeDisplayName?.text ||
-                        "",
-
-                    businessStatus:
-                        place.businessStatus ||
-                        "",
-
-
-                    /* =========================
-                       GOOGLE CONTACT
-                    ========================= */
-
-                    phone:
-                        place.internationalPhoneNumber ||
-                        "",
-
-                    internationalPhoneNumber:
-                        place.internationalPhoneNumber ||
-                        "",
-
-                    website:
-                        place.websiteUri ||
-                        "",
-
-                    websiteUri:
-                        place.websiteUri ||
-                        "",
-
-                    googleMapsUri:
-                        place.googleMapsUri ||
-                        "",
-
-
-                    /* =========================
-                       GOOGLE RATING
-                    ========================= */
 
                     rating:
                         place.rating ??
@@ -969,160 +911,127 @@ export default async function handler(req, res) {
                         place.userRatingCount ??
                         0,
 
+                    website:
+                        place.websiteUri ||
+                        "",
 
-                    /* =========================
-                       GOOGLE DESCRIPTION
-                    ========================= */
+                    websiteUri:
+                        place.websiteUri ||
+                        "",
+
+                    phone:
+                        place.internationalPhoneNumber ||
+                        "",
+
+                    internationalPhoneNumber:
+                        place.internationalPhoneNumber ||
+                        "",
+
+                    googleMapsUri:
+                        place.googleMapsUri ||
+                        "",
+
+                    primaryType:
+                        place.primaryType ||
+                        "",
+
+                    businessStatus:
+                        place.businessStatus ||
+                        "",
 
                     description:
                         description,
 
                     editorialSummary:
-                        getSummaryText(
-                            place.editorialSummary
-                        ),
-
-                    generativeSummary:
-                        getSummaryText(
-                            place.generativeSummary
-                        ),
-
-
-                    /* =========================
-                       GOOGLE PHOTOS
-                    ========================= */
+                        description,
 
                     photos:
                         photos,
+
+                    /*
+                     * Frontend can use the first
+                     * Google photo resource.
+                     */
 
                     image:
                         photos[0] ||
                         "",
 
 
-                    /* =========================
-                       GOOGLE REVIEWS
-                    ========================= */
-
-                    reviews:
-                        reviews,
-
-                    reviewSummary:
-                        reviewSummary,
-
-                    ratings:
-                        ratings,
-
-
-                    /* =========================
-                       GOOGLE AMENITIES
-                    ========================= */
+                    /*
+                     * AMENITIES
+                     */
 
                     amenities:
                         getAmenities(
                             place
                         ),
 
-                    servesBreakfast:
-                        !!place.servesBreakfast,
 
-                    servesLunch:
-                        !!place.servesLunch,
+                    /*
+                     * SERPAPI PRICE
+                     */
 
-                    servesDinner:
-                        !!place.servesDinner,
+                    price:{
 
-                    servesCoffee:
-                        !!place.servesCoffee,
+                        ratePerNight:
+                            rate.lowest ||
+                            "",
 
-                    servesVegetarianFood:
-                        !!place.servesVegetarianFood,
+                        extractedRatePerNight:
+                            rate.extracted_lowest ??
+                            null,
 
-                    goodForChildren:
-                        !!place.goodForChildren,
+                        total:
+                            total.lowest ||
+                            "",
 
-                    goodForGroups:
-                        !!place.goodForGroups,
+                        extractedTotal:
+                            total.extracted_lowest ??
+                            null,
 
-                    allowsDogs:
-                        !!place.allowsDogs,
+                        beforeTaxesPerNight:
+                            rate.before_taxes_fees ||
+                            "",
 
-                    parkingOptions:
-                        place.parkingOptions ||
-                        null,
+                        beforeTaxesTotal:
+                            total.before_taxes_fees ||
+                            ""
 
-                    accessibilityOptions:
-                        place.accessibilityOptions ||
-                        null,
+                    },
 
-                    restroom:
-                        place.restroom ||
-                        null,
-
-                    paymentOptions:
-                        place.paymentOptions ||
-                        null,
-
-
-                    /* =========================
-                       SERPAPI PRICE ONLY
-                    ========================= */
-
-                    price:
-                        price,
 
                     ratePerNight:
-                        price.ratePerNight,
-
-                    totalRate:
-                        price.total,
+                        rate.lowest ||
+                        "",
 
                     extractedRatePerNight:
-                        price.extractedRatePerNight,
+                        rate.extracted_lowest ??
+                        null,
+
+                    totalRate:
+                        total.lowest ||
+                        "",
 
                     extractedTotal:
-                        price.extractedTotal,
-
-                    beforeTaxesPerNight:
-                        price.beforeTaxesPerNight,
-
-                    beforeTaxesTotal:
-                        price.beforeTaxesTotal,
-
-                    checkInTime:
-                        price.checkInTime,
-
-                    checkOutTime:
-                        price.checkOutTime,
+                        total.extracted_lowest ??
+                        null,
 
 
-                    /* =========================
-                       SERPAPI MATCH INFO
-                    ========================= */
+                    /*
+                     * MATCH INFORMATION
+                     */
 
                     serpApiMatched:
-                        !!bestMatch,
-
-                    serpApiPropertyToken:
-                        bestMatch?.property_token ||
-                        "",
+                        !!best,
 
                     serpApiName:
-                        bestMatch?.name ||
+                        best?.name ||
                         "",
 
-                    serpApiHotelClass:
-                        bestMatch?.hotel_class ||
-                        "",
-
-                    serpApiImages:
-                        Array.isArray(
-                            bestMatch?.images
-                        )
-                        ?
-                        bestMatch.images
-                        :
-                        []
+                    serpApiPropertyToken:
+                        best?.property_token ||
+                        ""
 
                 };
 
@@ -1131,13 +1040,12 @@ export default async function handler(req, res) {
 
 
     /* =================================================
-       4. RETURN
+       RESPONSE
     ================================================= */
 
     return res.status(200).json({
 
-        success:
-            true,
+        success:true,
 
         destination:
             destination,
@@ -1149,28 +1057,41 @@ export default async function handler(req, res) {
             checkout,
 
         rooms:
-            Number(rooms),
+            rooms,
 
         adults:
-            Number(adults),
+            adults,
 
         children:
-            Number(children),
+            children,
 
         babies:
-            Number(babies),
+            babies,
 
         seniors:
-            Number(seniors),
+            seniors,
 
         guests:
-            Number(guests),
+            guests,
 
         count:
-            mergedHotels.length,
+            hotels.length,
+
+        /*
+         * Useful debugging information.
+         */
+
+        googleHotelCount:
+            googleHotels.length,
+
+        serpApiHotelCount:
+            serpHotels.length,
+
+        serpApiError:
+            serpError,
 
         hotels:
-            mergedHotels
+            hotels
 
     });
 
