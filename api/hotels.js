@@ -43,50 +43,14 @@ export default async function handler(req, res) {
     ) {
 
         return res.status(405).json({
-
             success: false,
-
-            error:
-                "Method not allowed"
-
+            error: "Method not allowed"
         });
 
     }
 
 
     try {
-
-        console.log(
-            "================================="
-        );
-
-        console.log(
-            "HOTEL BACKEND REQUEST"
-        );
-
-        console.log(
-            "METHOD:",
-            req.method
-        );
-
-        console.log(
-            "QUERY:",
-            req.query
-        );
-
-        console.log(
-            "BODY:",
-            req.body
-        );
-
-        console.log(
-            "================================="
-        );
-
-
-        /* =================================================
-           INPUT
-        ================================================= */
 
         const inputData =
             req.method === "GET"
@@ -95,17 +59,21 @@ export default async function handler(req, res) {
 
 
         const action =
-            inputData.action ||
-            "";
+            inputData.action || "";
 
 
         /* =================================================
-           SERPAPI KEY CHECK
+           ENVIRONMENT VARIABLES
         ================================================= */
 
-        if (
-            !process.env.SERPAPI_KEY
-        ) {
+        const SERPAPI_KEY =
+            process.env.SERPAPI_KEY;
+
+        const GOOGLE_PLACES_API_KEY =
+            process.env.GOOGLE_PLACES_API_KEY;
+
+
+        if (!SERPAPI_KEY) {
 
             return res.status(500).json({
 
@@ -119,8 +87,497 @@ export default async function handler(req, res) {
         }
 
 
+        if (!GOOGLE_PLACES_API_KEY) {
+
+            return res.status(500).json({
+
+                success: false,
+
+                error:
+                    "GOOGLE_PLACES_API_KEY is not configured in Vercel."
+
+            });
+
+        }
+
+
+        console.log(
+            "================================="
+        );
+
+        console.log(
+            "BOKKARA HOTEL BACKEND"
+        );
+
+        console.log(
+            "ACTION:",
+            action || "SEARCH"
+        );
+
+        console.log(
+            "================================="
+        );
+
+
+        /* =================================================
+           GOOGLE PLACES SEARCH
+           
+           Find the actual Google Place for a hotel.
+        ================================================= */
+
+        async function findGooglePlace(
+            hotel
+        ) {
+
+            const hotelName =
+                hotel?.name ||
+                "";
+
+            const hotelAddress =
+                hotel?.address ||
+                hotel?.formatted_address ||
+                hotel?.location ||
+                "";
+
+
+            if (!hotelName) {
+
+                return null;
+
+            }
+
+
+            const query =
+                hotelAddress
+                    ? `${hotelName}, ${hotelAddress}`
+                    : hotelName;
+
+
+            console.log(
+                "GOOGLE PLACES SEARCH:",
+                query
+            );
+
+
+            const response =
+                await fetch(
+                    "https://places.googleapis.com/v1/places:searchText",
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json",
+
+                            "X-Goog-Api-Key":
+                                GOOGLE_PLACES_API_KEY,
+
+                            "X-Goog-FieldMask":
+                                [
+                                    "places.id",
+                                    "places.name",
+                                    "places.displayName",
+                                    "places.formattedAddress",
+                                    "places.shortFormattedAddress",
+                                    "places.location",
+                                    "places.rating",
+                                    "places.userRatingCount",
+                                    "places.websiteUri",
+                                    "places.nationalPhoneNumber",
+                                    "places.internationalPhoneNumber",
+                                    "places.types",
+                                    "places.primaryType",
+                                    "places.primaryTypeDisplayName",
+                                    "places.googleMapsUri",
+                                    "places.photos",
+                                    "places.editorialSummary",
+                                    "places.regularOpeningHours"
+                                ].join(",")
+
+                        },
+
+                        body:
+                            JSON.stringify({
+
+                                textQuery:
+                                    query,
+
+                                languageCode:
+                                    "en",
+
+                                maxResultCount:
+                                    5
+
+                            })
+
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "GOOGLE PLACES STATUS:",
+                response.status
+            );
+
+
+            if (!response.ok) {
+
+                console.error(
+                    "GOOGLE PLACES ERROR:",
+                    data
+                );
+
+                return null;
+
+            }
+
+
+            const places =
+                Array.isArray(data?.places)
+                    ? data.places
+                    : [];
+
+
+            if (!places.length) {
+
+                return null;
+
+            }
+
+
+            /*
+               Prefer a result that looks like
+               the actual hotel.
+            */
+
+            const hotelTypes = new Set([
+
+                "lodging",
+                "hotel",
+                "resort_hotel",
+                "motel",
+                "hostel",
+                "bed_and_breakfast",
+                "inn"
+
+            ]);
+
+
+            const hotelPlace =
+                places.find(
+                    place =>
+                        Array.isArray(place.types) &&
+                        place.types.some(
+                            type =>
+                                hotelTypes.has(type)
+                        )
+                ) ||
+                places[0];
+
+
+            return hotelPlace;
+
+        }
+
+
+        /* =================================================
+           GOOGLE PLACE DETAILS
+           
+           Retrieve complete Google Places information.
+        ================================================= */
+
+        async function getGooglePlaceDetails(
+            placeId
+        ) {
+
+            if (!placeId) {
+
+                return null;
+
+            }
+
+
+            const url =
+                new URL(
+                    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`
+                );
+
+
+            const fieldMask = [
+
+                "id",
+                "name",
+                "displayName",
+                "formattedAddress",
+                "shortFormattedAddress",
+                "location",
+                "rating",
+                "userRatingCount",
+                "websiteUri",
+                "nationalPhoneNumber",
+                "internationalPhoneNumber",
+                "googleMapsUri",
+                "types",
+                "primaryType",
+                "primaryTypeDisplayName",
+                "photos",
+                "editorialSummary",
+                "regularOpeningHours"
+
+            ];
+
+
+            const response =
+                await fetch(
+                    url,
+                    {
+
+                        headers: {
+
+                            "X-Goog-Api-Key":
+                                GOOGLE_PLACES_API_KEY,
+
+                            "X-Goog-FieldMask":
+                                fieldMask.join(",")
+
+                        }
+
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "GOOGLE PLACE DETAILS STATUS:",
+                response.status
+            );
+
+
+            if (!response.ok) {
+
+                console.error(
+                    "GOOGLE PLACE DETAILS ERROR:",
+                    data
+                );
+
+                return null;
+
+            }
+
+
+            return data;
+
+        }
+
+
+        /* =================================================
+           GOOGLE PLACE PHOTO URL
+           
+           Google Places photo resources are returned as
+           photo resource names. Convert them to usable
+           image URLs.
+        ================================================= */
+
+        function buildGooglePhotoUrl(
+            photoName
+        ) {
+
+            if (!photoName) {
+
+                return "";
+
+            }
+
+
+            return (
+                "https://places.googleapis.com/v1/" +
+                photoName +
+                "/media" +
+                "?maxWidthPx=1600" +
+                "&maxHeightPx=1200" +
+                "&key=" +
+                encodeURIComponent(
+                    GOOGLE_PLACES_API_KEY
+                )
+            );
+
+        }
+
+
+        /* =================================================
+           NORMALIZE GOOGLE PLACE
+        ================================================= */
+
+        function normalizeGooglePlace(
+            place
+        ) {
+
+            if (!place) {
+
+                return null;
+
+            }
+
+
+            const photos =
+                Array.isArray(place.photos)
+                    ? place.photos
+                    : [];
+
+
+            const photoUrls =
+                photos
+                    .map(
+                        photo =>
+                            buildGooglePhotoUrl(
+                                photo.name
+                            )
+                    )
+                    .filter(Boolean);
+
+
+            const editorialSummary =
+                place.editorialSummary?.text ||
+                "";
+
+
+            return {
+
+                google_place_id:
+                    place.id || "",
+
+
+                name:
+                    place.displayName?.text ||
+                    "",
+
+
+                address:
+                    place.formattedAddress ||
+                    "",
+
+
+                short_address:
+                    place.shortFormattedAddress ||
+                    "",
+
+
+                phone:
+                    place.nationalPhoneNumber ||
+                    place.internationalPhoneNumber ||
+                    "",
+
+
+                website:
+                    place.websiteUri ||
+                    "",
+
+
+                google_maps_url:
+                    place.googleMapsUri ||
+                    "",
+
+
+                rating:
+                    place.rating ??
+                    0,
+
+
+                overall_rating:
+                    place.rating ??
+                    0,
+
+
+                review_count:
+                    place.userRatingCount ??
+                    0,
+
+
+                reviews_count:
+                    place.userRatingCount ??
+                    0,
+
+
+                description:
+                    editorialSummary,
+
+
+                editorial_summary:
+                    editorialSummary,
+
+
+                types:
+                    Array.isArray(place.types)
+                        ? place.types
+                        : [],
+
+
+                primary_type:
+                    place.primaryType ||
+                    "",
+
+
+                primary_type_name:
+                    place.primaryTypeDisplayName?.text ||
+                    "",
+
+
+                gps_coordinates:
+                    place.location
+                        ? {
+                            latitude:
+                                place.location.latitude,
+
+                            longitude:
+                                place.location.longitude
+                        }
+                        : null,
+
+
+                latitude:
+                    place.location?.latitude ??
+                    null,
+
+
+                longitude:
+                    place.location?.longitude ??
+                    null,
+
+
+                photos:
+                    photoUrls.map(
+                        url => ({
+                            original_image:
+                                url,
+
+                            thumbnail:
+                                url
+                        })
+                    ),
+
+
+                regular_opening_hours:
+                    place.regularOpeningHours ||
+                    null
+
+            };
+
+        }
+
+
         /* =================================================
            HOTEL DETAILS
+           
+           Google Places is now the primary source.
         ================================================= */
 
         if (
@@ -131,6 +588,59 @@ export default async function handler(req, res) {
                 inputData.property_token;
 
 
+            const googlePlaceId =
+                inputData.google_place_id;
+
+
+            /*
+               Preferred:
+               Google Place ID.
+            */
+
+            if (googlePlaceId) {
+
+                const place =
+                    await getGooglePlaceDetails(
+                        googlePlaceId
+                    );
+
+
+                if (!place) {
+
+                    return res.status(404).json({
+
+                        success: false,
+
+                        error:
+                            "Google Place was not found."
+
+                    });
+
+                }
+
+
+                return res.status(200).json({
+
+                    success: true,
+
+                    hotel:
+                        normalizeGooglePlace(
+                            place
+                        )
+
+                });
+
+            }
+
+
+            /*
+               Backward compatibility:
+               If the frontend only has property_token,
+               use SerpAPI once to identify the hotel,
+               then Google Places becomes the source
+               of the actual details.
+            */
+
             if (!propertyToken) {
 
                 return res.status(400).json({
@@ -138,7 +648,7 @@ export default async function handler(req, res) {
                     success: false,
 
                     error:
-                        "property_token is required"
+                        "google_place_id or property_token is required."
 
                 });
 
@@ -165,61 +675,88 @@ export default async function handler(req, res) {
 
             serpURL.searchParams.set(
                 "api_key",
-                process.env.SERPAPI_KEY
+                SERPAPI_KEY
             );
 
 
-            const response =
+            const serpResponse =
                 await fetch(
                     serpURL
                 );
 
 
-            const data =
-                await response.json();
-
-
-            console.log(
-                "HOTEL DETAILS STATUS:",
-                response.status
-            );
-
-
-            console.log(
-                "HOTEL DETAILS RESPONSE:",
-                data
-            );
+            const serpData =
+                await serpResponse.json();
 
 
             if (
-                !response.ok ||
-                data.error
+                !serpResponse.ok ||
+                serpData.error
             ) {
 
-                return res.status(
-                    response.ok
-                        ? 500
-                        : response.status
-                ).json({
+                return res.status(500).json({
 
                     success: false,
 
                     error:
-                        data.error ||
-                        `SerpAPI returned ${response.status}`
+                        serpData.error ||
+                        "Unable to identify hotel."
 
                 });
 
             }
 
 
+            const serpHotel =
+                serpData.property ||
+                serpData;
+
+
+            const googlePlace =
+                await findGooglePlace(
+                    serpHotel
+                );
+
+
+            if (!googlePlace) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    error:
+                        "Google Places could not find this hotel."
+
+                });
+
+            }
+
+
+            const googleDetails =
+                await getGooglePlaceDetails(
+                    googlePlace.id
+                );
+
+
+            const hotel =
+                normalizeGooglePlace(
+                    googleDetails ||
+                    googlePlace
+                );
+
+
             return res.status(200).json({
 
                 success: true,
 
-                hotel:
-                    data.property ||
-                    data
+                hotel: {
+
+                    ...hotel,
+
+                    property_token:
+                        propertyToken
+
+                }
 
             });
 
@@ -227,16 +764,14 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           HOTEL REVIEWS
+           REVIEWS
+           
+           KEEP SERPAPI REVIEWS.
         ================================================= */
 
         if (
             action === "reviews"
         ) {
-
-            /* =============================================
-               PROPERTY TOKEN
-            ============================================= */
 
             const propertyToken =
                 inputData.property_token;
@@ -256,44 +791,20 @@ export default async function handler(req, res) {
             }
 
 
-            /* =============================================
-               OPTIONAL PAGINATION
-            ============================================= */
-
             const nextPageToken =
                 inputData.next_page_token ||
                 null;
 
-
-            /* =============================================
-               OPTIONAL SORT
-               
-               1 = Most helpful
-               2 = Most recent
-               3 = Highest score
-               4 = Lowest score
-               
-               Default:
-               Most recent
-            ============================================= */
 
             const sortBy =
                 inputData.sort_by ||
                 "2";
 
 
-            /* =============================================
-               OPTIONAL LANGUAGE
-            ============================================= */
-
             const language =
                 inputData.hl ||
                 "en";
 
-
-            /* =============================================
-               SERPAPI REVIEWS URL
-            ============================================= */
 
             const serpURL =
                 new URL(
@@ -325,13 +836,7 @@ export default async function handler(req, res) {
             );
 
 
-            /* =============================================
-               NEXT PAGE
-            ============================================= */
-
-            if (
-                nextPageToken
-            ) {
+            if (nextPageToken) {
 
                 serpURL.searchParams.set(
                     "next_page_token",
@@ -340,10 +845,6 @@ export default async function handler(req, res) {
 
             }
 
-
-            /* =============================================
-               OPTIONAL CATEGORY
-            ============================================= */
 
             if (
                 inputData.category_token
@@ -357,10 +858,6 @@ export default async function handler(req, res) {
             }
 
 
-            /* =============================================
-               OPTIONAL REVIEW SOURCE
-            ============================================= */
-
             if (
                 inputData.source_number
             ) {
@@ -373,36 +870,11 @@ export default async function handler(req, res) {
             }
 
 
-            /* =============================================
-               SERPAPI KEY
-            ============================================= */
-
             serpURL.searchParams.set(
                 "api_key",
-                process.env.SERPAPI_KEY
+                SERPAPI_KEY
             );
 
-
-            /* =============================================
-               LOG REQUEST WITHOUT API KEY
-            ============================================= */
-
-            console.log(
-                "FETCHING HOTEL REVIEWS:"
-            );
-
-            console.log(
-                serpURL.toString()
-                    .replace(
-                        process.env.SERPAPI_KEY,
-                        "HIDDEN"
-                    )
-            );
-
-
-            /* =============================================
-               FETCH REVIEWS
-            ============================================= */
 
             const response =
                 await fetch(
@@ -413,26 +885,6 @@ export default async function handler(req, res) {
             const data =
                 await response.json();
 
-
-            /* =============================================
-               LOG RESPONSE
-            ============================================= */
-
-            console.log(
-                "HOTEL REVIEWS STATUS:",
-                response.status
-            );
-
-
-            console.log(
-                "HOTEL REVIEWS RESPONSE:",
-                data
-            );
-
-
-            /* =============================================
-               SERPAPI ERROR
-            ============================================= */
 
             if (
                 !response.ok ||
@@ -456,38 +908,16 @@ export default async function handler(req, res) {
             }
 
 
-            /* =============================================
-               GET REVIEWS
-               
-               SerpAPI returns actual review objects
-               directly inside data.reviews
-            ============================================= */
-
             const reviews =
-                Array.isArray(
-                    data.reviews
-                )
+                Array.isArray(data.reviews)
                     ? data.reviews
                     : [];
 
-
-            /* =============================================
-               PAGINATION INFORMATION
-            ============================================= */
 
             const pagination =
                 data.serpapi_pagination ||
                 {};
 
-
-            const newNextPageToken =
-                pagination.next_page_token ||
-                null;
-
-
-            /* =============================================
-               RETURN REVIEWS
-            ============================================= */
 
             return res.status(200).json({
 
@@ -502,15 +932,24 @@ export default async function handler(req, res) {
                 review_count:
                     reviews.length,
 
+                overall_rating:
+                    data.overall_rating ??
+                    data.rating ??
+                    0,
+
+                total_reviews:
+                    data.total_reviews ??
+                    data.total_review_count ??
+                    data.reviews_count ??
+                    data.review_count ??
+                    0,
+
                 next_page_token:
-                    newNextPageToken,
+                    pagination.next_page_token ||
+                    null,
 
                 has_more:
-                    !!newNextPageToken,
-
-                search_metadata:
-                    data.search_metadata ||
-                    null
+                    !!pagination.next_page_token
 
             });
 
@@ -518,7 +957,16 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           HOTEL SEARCH INPUT
+           HOTEL SEARCH
+           
+           SERPAPI IS USED ONLY TO GET:
+           
+           - hotel/property identity
+           - live price
+           - property token
+           
+           Google Places supplies the actual
+           hotel information.
         ================================================= */
 
         const destination =
@@ -536,42 +984,30 @@ export default async function handler(req, res) {
         const rooms =
             Math.max(
                 1,
-                Number(
-                    inputData.rooms
-                ) || 1
+                Number(inputData.rooms) || 1
             );
 
 
         const adults =
             Math.max(
                 1,
-                Number(
-                    inputData.adults
-                ) || 1
+                Number(inputData.adults) || 1
             );
 
 
         const children =
             Math.max(
                 0,
-                Number(
-                    inputData.children
-                ) || 0
+                Number(inputData.children) || 0
             );
 
 
         const seniors =
             Math.max(
                 0,
-                Number(
-                    inputData.seniors
-                ) || 0
+                Number(inputData.seniors) || 0
             );
 
-
-        /* =================================================
-           VALIDATION
-        ================================================= */
 
         if (!destination) {
 
@@ -615,22 +1051,8 @@ export default async function handler(req, res) {
         }
 
 
-        console.log(
-            "HOTEL SEARCH:",
-            {
-                destination,
-                checkIn,
-                checkOut,
-                rooms,
-                adults,
-                children,
-                seniors
-            }
-        );
-
-
         /* =================================================
-           SERPAPI HOTEL SEARCH
+           SERPAPI PRICE SEARCH
         ================================================= */
 
         async function fetchHotels(
@@ -685,9 +1107,7 @@ export default async function handler(req, res) {
             );
 
 
-            if (
-                pageToken
-            ) {
+            if (pageToken) {
 
                 serpURL.searchParams.set(
                     "next_page_token",
@@ -699,7 +1119,7 @@ export default async function handler(req, res) {
 
             serpURL.searchParams.set(
                 "api_key",
-                process.env.SERPAPI_KEY
+                SERPAPI_KEY
             );
 
 
@@ -713,29 +1133,14 @@ export default async function handler(req, res) {
                 await response.json();
 
 
-            console.log(
-                "SERPAPI STATUS:",
-                response.status
-            );
-
-
             if (
-                !response.ok
-            ) {
-
-                throw new Error(
-                    `SerpAPI returned ${response.status}`
-                );
-
-            }
-
-
-            if (
+                !response.ok ||
                 data.error
             ) {
 
                 throw new Error(
-                    data.error
+                    data.error ||
+                    `SerpAPI returned ${response.status}`
                 );
 
             }
@@ -747,46 +1152,33 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           GET HOTEL RESULTS
+           GET SERPAPI RESULTS
         ================================================= */
 
-        let allHotels = [];
+        let serpHotels = [];
 
 
         let data =
             await fetchHotels();
 
 
-        console.log(
-            "FIRST SERPAPI RESPONSE:",
-            data
-        );
-
-
         if (
-            Array.isArray(
-                data.properties
-            )
+            Array.isArray(data.properties)
         ) {
 
-            allHotels.push(
+            serpHotels.push(
                 ...data.properties
             );
 
         }
 
 
-        /* =================================================
-           GET ADDITIONAL PAGES
-        ================================================= */
-
         let nextPageToken =
             data.serpapi_pagination
                 ?.next_page_token;
 
 
-        let page =
-            0;
+        let page = 0;
 
 
         while (
@@ -806,7 +1198,7 @@ export default async function handler(req, res) {
                 )
             ) {
 
-                allHotels.push(
+                serpHotels.push(
                     ...nextData.properties
                 );
 
@@ -814,9 +1206,9 @@ export default async function handler(req, res) {
 
 
             nextPageToken =
-                nextData
-                    .serpapi_pagination
-                    ?.next_page_token;
+                nextData.serpapi_pagination
+                    ?.next_page_token ||
+                null;
 
 
             page++;
@@ -825,14 +1217,14 @@ export default async function handler(req, res) {
 
 
         /* =================================================
-           REMOVE DUPLICATES
+           REMOVE SERPAPI DUPLICATES
         ================================================= */
 
-        const uniqueHotels =
+        const uniqueSerpHotels =
             new Map();
 
 
-        allHotels.forEach(
+        serpHotels.forEach(
             hotel => {
 
                 if (!hotel) return;
@@ -845,10 +1237,10 @@ export default async function handler(req, res) {
 
                 if (
                     key &&
-                    !uniqueHotels.has(key)
+                    !uniqueSerpHotels.has(key)
                 ) {
 
-                    uniqueHotels.set(
+                    uniqueSerpHotels.set(
                         key,
                         hotel
                     );
@@ -859,43 +1251,281 @@ export default async function handler(req, res) {
         );
 
 
-        allHotels =
+        serpHotels =
             Array.from(
-                uniqueHotels.values()
+                uniqueSerpHotels.values()
             );
 
 
         /* =================================================
-           FILTER HOTELS
+           GET GOOGLE PLACES DATA
+           
+           Every hotel gets matched to Google.
         ================================================= */
 
-        allHotels =
-            allHotels.filter(
-                hotel => {
-
-                    if (!hotel) {
-
-                        return false;
-
-                    }
+        const finalHotels = [];
 
 
-                    return (
-                        hotel.name ||
-                        hotel.property_token
+        for (
+            const serpHotel
+            of serpHotels
+        ) {
+
+            try {
+
+                console.log(
+                    "================================="
+                );
+
+                console.log(
+                    "MATCHING HOTEL TO GOOGLE PLACES:"
+                );
+
+                console.log(
+                    serpHotel.name
+                );
+
+
+                const googlePlace =
+                    await findGooglePlace(
+                        serpHotel
+                    );
+
+
+                if (!googlePlace) {
+
+                    console.warn(
+                        "GOOGLE PLACE NOT FOUND:",
+                        serpHotel.name
+                    );
+
+                    /*
+                       Do not expose a SerpAPI hotel
+                       as the primary hotel record.
+                    */
+
+                    continue;
+
+                }
+
+
+                const googleHotel =
+                    normalizeGooglePlace(
+                        googlePlace
+                    );
+
+
+                if (!googleHotel) {
+
+                    continue;
+
+                }
+
+
+                /*
+                   =================================================
+                   PRICE ONLY FROM SERPAPI
+                   =================================================
+                */
+
+                const price =
+                    serpHotel
+                        .rate_per_night
+                        ?.lowest ??
+                    serpHotel
+                        .rate_per_night
+                        ?.extracted_lowest ??
+                    serpHotel
+                        .total_rate
+                        ?.lowest ??
+                    serpHotel
+                        .total_rate
+                        ?.extracted_lowest ??
+                    serpHotel.price ??
+                    "";
+
+
+                const extractedPrice =
+                    serpHotel
+                        .rate_per_night
+                        ?.extracted_lowest ??
+                    serpHotel
+                        .total_rate
+                        ?.extracted_lowest ??
+                    null;
+
+
+                /*
+                   Only return hotels that actually
+                   have a live SerpAPI price.
+                */
+
+                if (
+                    price === "" ||
+                    price === null ||
+                    price === undefined
+                ) {
+
+                    continue;
+
+                }
+
+
+                const numericPrice =
+                    Number(
+                        String(price)
+                            .replace(
+                                /[^0-9.]/g,
+                                ""
+                            )
+                    );
+
+
+                if (
+                    !Number.isFinite(
+                        numericPrice
+                    ) ||
+                    numericPrice <= 0
+                ) {
+
+                    continue;
+
+                }
+
+
+                /*
+                   MERGED HOTEL OBJECT
+                */
+
+                finalHotels.push({
+
+                    /*
+                       Google Places information
+                    */
+
+                    ...googleHotel,
+
+
+                    /*
+                       SerpAPI identifiers
+                    */
+
+                    property_token:
+                        serpHotel.property_token ||
+                        "",
+
+
+                    /*
+                       ONLY PRICE DATA COMES
+                       FROM SERPAPI
+                    */
+
+                    rate_per_night: {
+
+                        lowest:
+                            price,
+
+                        extracted_lowest:
+                            extractedPrice
+
+                    },
+
+
+                    price:
+                        price,
+
+
+                    price_source:
+                        "SerpAPI Google Hotels",
+
+
+                    /*
+                       Search dates
+                    */
+
+                    check_in:
+                        checkIn,
+
+                    check_out:
+                        checkOut,
+
+
+                    rooms:
+                        rooms,
+
+                    adults:
+                        adults,
+
+                    children:
+                        children,
+
+                    seniors:
+                        seniors
+
+                });
+
+            }
+            catch (hotelError) {
+
+                console.error(
+                    "HOTEL GOOGLE MATCH ERROR:",
+                    hotelError
+                );
+
+            }
+
+        }
+
+
+        /* =================================================
+           REMOVE FINAL DUPLICATES
+        ================================================= */
+
+        const finalUnique =
+            new Map();
+
+
+        finalHotels.forEach(
+            hotel => {
+
+                const key =
+                    hotel.google_place_id ||
+                    hotel.name;
+
+
+                if (
+                    key &&
+                    !finalUnique.has(key)
+                ) {
+
+                    finalUnique.set(
+                        key,
+                        hotel
                     );
 
                 }
+
+            }
+        );
+
+
+        const allHotels =
+            Array.from(
+                finalUnique.values()
             );
 
 
-        /* =================================================
-           FINAL RESPONSE
-        ================================================= */
+        console.log(
+            "================================="
+        );
 
         console.log(
-            "FINAL HOTEL COUNT:",
+            "FINAL GOOGLE + SERPAPI HOTEL COUNT:",
             allHotels.length
+        );
+
+        console.log(
+            "================================="
         );
 
 
