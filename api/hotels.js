@@ -124,6 +124,1163 @@ if (
 
 
 /* =================================================
+   SHARED HELPERS
+================================================= */
+
+/*
+   Google Hotels can return providers with slightly
+   different names.
+
+   Normalize them so Booking.com / Booking / Expedia
+   are consistently identified.
+*/
+
+function normalizeProviderName(
+    provider
+) {
+
+    if (!provider) {
+
+        return null;
+
+    }
+
+
+    const value =
+        String(provider)
+            .trim();
+
+
+    const lower =
+        value.toLowerCase();
+
+
+    if (
+        lower.includes("booking.com") ||
+        lower === "booking" ||
+        lower.includes("bookingcom")
+    ) {
+
+        return "Booking.com";
+
+    }
+
+
+    if (
+        lower.includes("expedia")
+    ) {
+
+        return "Expedia";
+
+    }
+
+
+    if (
+        lower.includes("hotels.com")
+    ) {
+
+        return "Hotels.com";
+
+    }
+
+
+    if (
+        lower.includes("agoda")
+    ) {
+
+        return "Agoda";
+
+    }
+
+
+    return value;
+
+}
+
+
+/* =================================================
+   RATE NORMALIZER
+================================================= */
+
+function normalizeRate(
+    rate
+) {
+
+    if (!rate) {
+
+        return null;
+
+    }
+
+
+    const extractedLowest =
+        Number(
+            rate.extracted_lowest
+        );
+
+
+    const extractedBeforeTaxesFees =
+        Number(
+            rate.extracted_before_taxes_fees
+        );
+
+
+    return {
+
+        lowest:
+            rate.lowest ||
+            null,
+
+        extracted_lowest:
+            Number.isFinite(
+                extractedLowest
+            )
+                ? extractedLowest
+                : null,
+
+        before_taxes_fees:
+            rate.before_taxes_fees ||
+            null,
+
+        extracted_before_taxes_fees:
+            Number.isFinite(
+                extractedBeforeTaxesFees
+            )
+                ? extractedBeforeTaxesFees
+                : null
+
+    };
+
+}
+
+
+/* =================================================
+   BEDS NORMALIZER
+================================================= */
+
+function normalizeBeds(
+    beds
+) {
+
+    if (
+        !Array.isArray(beds)
+    ) {
+
+        return [];
+
+    }
+
+
+    return beds
+        .map(
+            bed => {
+
+                if (!bed) {
+
+                    return null;
+
+                }
+
+
+                return {
+
+                    type:
+                        bed.type ||
+                        null,
+
+                    count:
+                        Number(
+                            bed.count
+                        ) || 1
+
+                };
+
+            }
+        )
+        .filter(Boolean);
+
+}
+
+
+/* =================================================
+   RATE OPTION NORMALIZER
+================================================= */
+
+function normalizeRateOption(
+    rate,
+    providerName
+) {
+
+    if (!rate) {
+
+        return null;
+
+    }
+
+
+    return {
+
+        provider:
+            normalizeProviderName(
+                providerName
+            ),
+
+        link:
+            rate.link ||
+            rate.booking_link ||
+            null,
+
+        room_name:
+            rate.name ||
+            rate.room_name ||
+            null,
+
+        num_guests:
+            Number(
+                rate.num_guests
+            ) || null,
+
+        rate_per_night:
+            normalizeRate(
+                rate.rate_per_night
+            ),
+
+        total_rate:
+            normalizeRate(
+                rate.total_rate
+            ),
+
+        original_rate_per_night:
+            normalizeRate(
+                rate.original_rate_per_night
+            ),
+
+        original_total_rate:
+            normalizeRate(
+                rate.original_total_rate
+            ),
+
+        free_cancellation:
+            rate.free_cancellation === true,
+
+        free_cancellation_until_date:
+            rate.free_cancellation_until_date ||
+            null,
+
+        free_cancellation_until_time:
+            rate.free_cancellation_until_time ||
+            null,
+
+        breakfast_included:
+            rate.breakfast_included === true,
+
+        beds:
+            normalizeBeds(
+                rate.beds
+            ),
+
+        inclusions:
+            Array.isArray(
+                rate.inclusions
+            )
+                ? rate.inclusions
+                : [],
+
+        benefits:
+            rate.benefits ||
+            null,
+
+        discount_remarks:
+            Array.isArray(
+                rate.discount_remarks
+            )
+                ? rate.discount_remarks
+                : []
+
+    };
+
+}
+
+
+/* =================================================
+   ROOM NORMALIZER
+================================================= */
+
+function normalizeRoom(
+    room,
+    providerName,
+    fallbackLink
+) {
+
+    if (!room) {
+
+        return null;
+
+    }
+
+
+    const provider =
+        normalizeProviderName(
+            providerName
+        );
+
+
+    return {
+
+        name:
+            room.name ||
+            null,
+
+        images:
+            Array.isArray(
+                room.images
+            )
+                ? room.images
+                : [],
+
+        link:
+            room.link ||
+            fallbackLink ||
+            null,
+
+        num_guests:
+            Number(
+                room.num_guests
+            ) || null,
+
+        rate_per_night:
+            normalizeRate(
+                room.rate_per_night
+            ),
+
+        total_rate:
+            normalizeRate(
+                room.total_rate
+            ),
+
+        original_rate_per_night:
+            normalizeRate(
+                room.original_rate_per_night
+            ),
+
+        original_total_rate:
+            normalizeRate(
+                room.original_total_rate
+            ),
+
+        free_cancellation:
+            room.free_cancellation === true,
+
+        free_cancellation_until_date:
+            room.free_cancellation_until_date ||
+            null,
+
+        free_cancellation_until_time:
+            room.free_cancellation_until_time ||
+            null,
+
+        breakfast_included:
+            room.breakfast_included === true,
+
+        beds:
+            normalizeBeds(
+                room.beds
+            ),
+
+        inclusions:
+            Array.isArray(
+                room.inclusions
+            )
+                ? room.inclusions
+                : [],
+
+        benefits:
+            room.benefits ||
+            null,
+
+        rates:
+            Array.isArray(
+                room.rates
+            )
+                ? room.rates
+                    .map(
+                        rate =>
+                            normalizeRateOption(
+                                rate,
+                                provider
+                            )
+                    )
+                    .filter(Boolean)
+                : []
+
+    };
+
+}
+
+
+/* =================================================
+   PROVIDER OPTION BUILDER
+================================================= */
+
+function buildProviderOption(
+    source,
+    providerOverride = null
+) {
+
+    if (!source) {
+
+        return null;
+
+    }
+
+
+    const provider =
+        normalizeProviderName(
+            providerOverride ||
+            source.source ||
+            source.provider ||
+            source.name
+        );
+
+
+    if (!provider) {
+
+        return null;
+
+    }
+
+
+    const option = {
+
+        provider:
+            provider,
+
+        original_provider_name:
+            source.source ||
+            source.provider ||
+            null,
+
+        logo:
+            source.logo ||
+            source.source_icon ||
+            null,
+
+        official:
+            source.official === true,
+
+        sponsored:
+            source.sponsored === true,
+
+        link:
+            source.link ||
+            source.booking_link ||
+            null,
+
+        num_guests:
+            Number(
+                source.num_guests
+            ) || null,
+
+        rate_per_night:
+            normalizeRate(
+                source.rate_per_night
+            ),
+
+        total_rate:
+            normalizeRate(
+                source.total_rate
+            ),
+
+        original_rate_per_night:
+            normalizeRate(
+                source.original_rate_per_night
+            ),
+
+        original_total_rate:
+            normalizeRate(
+                source.original_total_rate
+            ),
+
+        free_cancellation:
+            source.free_cancellation === true,
+
+        free_cancellation_until_date:
+            source.free_cancellation_until_date ||
+            null,
+
+        free_cancellation_until_time:
+            source.free_cancellation_until_time ||
+            null,
+
+        breakfast_included:
+            source.breakfast_included === true,
+
+        benefits:
+            source.benefits ||
+            null,
+
+        discount_remarks:
+            Array.isArray(
+                source.discount_remarks
+            )
+                ? source.discount_remarks
+                : [],
+
+        rooms:
+            [],
+
+        rates:
+            []
+
+    };
+
+
+    /* =============================================
+       DIRECT RATES
+    ============================================= */
+
+    if (
+        Array.isArray(
+            source.rates
+        )
+    ) {
+
+        option.rates =
+            source.rates
+                .map(
+                    rate =>
+                        normalizeRateOption(
+                            rate,
+                            provider
+                        )
+                )
+                .filter(Boolean);
+
+    }
+
+
+    /* =============================================
+       ROOMS
+    ============================================= */
+
+    if (
+        Array.isArray(
+            source.rooms
+        )
+    ) {
+
+        option.rooms =
+            source.rooms
+                .map(
+                    room =>
+                        normalizeRoom(
+                            room,
+                            provider,
+                            source.link
+                        )
+                )
+                .filter(Boolean);
+
+    }
+
+
+    return option;
+
+}
+
+
+/* =================================================
+   MERGE PROVIDER OPTIONS
+================================================= */
+
+function mergeProviderOptions(
+    existing,
+    incoming
+) {
+
+    if (!existing) {
+
+        return incoming;
+
+    }
+
+
+    if (!incoming) {
+
+        return existing;
+
+    }
+
+
+    if (
+        !existing.logo &&
+        incoming.logo
+    ) {
+
+        existing.logo =
+            incoming.logo;
+
+    }
+
+
+    if (
+        !existing.link &&
+        incoming.link
+    ) {
+
+        existing.link =
+            incoming.link;
+
+    }
+
+
+    if (
+        incoming.official
+    ) {
+
+        existing.official =
+            true;
+
+    }
+
+
+    if (
+        incoming.sponsored
+    ) {
+
+        existing.sponsored =
+            true;
+
+    }
+
+
+    if (
+        !existing.rate_per_night &&
+        incoming.rate_per_night
+    ) {
+
+        existing.rate_per_night =
+            incoming.rate_per_night;
+
+    }
+
+
+    if (
+        !existing.total_rate &&
+        incoming.total_rate
+    ) {
+
+        existing.total_rate =
+            incoming.total_rate;
+
+    }
+
+
+    if (
+        !existing.original_rate_per_night &&
+        incoming.original_rate_per_night
+    ) {
+
+        existing.original_rate_per_night =
+            incoming.original_rate_per_night;
+
+    }
+
+
+    if (
+        !existing.original_total_rate &&
+        incoming.original_total_rate
+    ) {
+
+        existing.original_total_rate =
+            incoming.original_total_rate;
+
+    }
+
+
+    if (
+        !existing.free_cancellation &&
+        incoming.free_cancellation
+    ) {
+
+        existing.free_cancellation =
+            true;
+
+    }
+
+
+    if (
+        !existing.breakfast_included &&
+        incoming.breakfast_included
+    ) {
+
+        existing.breakfast_included =
+            true;
+
+    }
+
+
+    if (
+        !existing.benefits &&
+        incoming.benefits
+    ) {
+
+        existing.benefits =
+            incoming.benefits;
+
+    }
+
+
+    existing.rooms.push(
+        ...(incoming.rooms || [])
+    );
+
+
+    existing.rates.push(
+        ...(incoming.rates || [])
+    );
+
+
+    return existing;
+
+}
+
+
+/* =================================================
+   DEDUPLICATE PROVIDER ROOMS/RATES
+================================================= */
+
+function deduplicateProvider(
+    option
+) {
+
+    if (!option) {
+
+        return option;
+
+    }
+
+
+    const roomMap =
+        new Map();
+
+
+    option.rooms =
+        (option.rooms || [])
+            .filter(
+                room => {
+
+                    const key =
+                        [
+                            room.name,
+                            room.link,
+                            room.total_rate
+                                ?.extracted_lowest,
+                            room.rate_per_night
+                                ?.extracted_lowest
+                        ]
+                            .join("|");
+
+
+                    if (
+                        roomMap.has(key)
+                    ) {
+
+                        return false;
+
+                    }
+
+
+                    roomMap.set(
+                        key,
+                        true
+                    );
+
+
+                    return true;
+
+                }
+            );
+
+
+    const rateMap =
+        new Map();
+
+
+    option.rates =
+        (option.rates || [])
+            .filter(
+                rate => {
+
+                    const key =
+                        [
+                            rate.link,
+                            rate.room_name,
+                            rate.total_rate
+                                ?.extracted_lowest,
+                            rate.rate_per_night
+                                ?.extracted_lowest
+                        ]
+                            .join("|");
+
+
+                    if (
+                        rateMap.has(key)
+                    ) {
+
+                        return false;
+
+                    }
+
+
+                    rateMap.set(
+                        key,
+                        true
+                    );
+
+
+                    return true;
+
+                }
+            );
+
+
+    return option;
+
+}
+
+
+/* =================================================
+   BUILD ALL BOOKING OPTIONS
+================================================= */
+
+function extractBookingOptions(
+    data,
+    propertyToken
+) {
+
+    const providerMap =
+        new Map();
+
+
+    function addProvider(
+        source,
+        providerOverride = null
+    ) {
+
+        if (!source) {
+
+            return;
+
+        }
+
+
+        const option =
+            buildProviderOption(
+                source,
+                providerOverride
+            );
+
+
+        if (!option) {
+
+            return;
+
+        }
+
+
+        const key =
+            String(
+                option.provider
+            )
+                .trim()
+                .toLowerCase();
+
+
+        if (
+            providerMap.has(key)
+        ) {
+
+            const existing =
+                providerMap.get(
+                    key
+                );
+
+
+            providerMap.set(
+                key,
+                mergeProviderOptions(
+                    existing,
+                    option
+                )
+            );
+
+        } else {
+
+            providerMap.set(
+                key,
+                option
+            );
+
+        }
+
+    }
+
+
+    /* =============================================
+       PROPERTY
+    ============================================= */
+
+    const hotel =
+        data.property ||
+        data;
+
+
+    /* =============================================
+       PROPERTY PRICES
+    ============================================= */
+
+    if (
+        Array.isArray(
+            hotel.prices
+        )
+    ) {
+
+        hotel.prices.forEach(
+            price => {
+
+                addProvider(
+                    price
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =============================================
+       FEATURED PRICES
+    ============================================= */
+
+    if (
+        Array.isArray(
+            hotel.featured_prices
+        )
+    ) {
+
+        hotel.featured_prices.forEach(
+            featured => {
+
+                addProvider(
+                    featured
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =============================================
+       ADS
+
+       Google Hotels can expose booking providers
+       in the ads array.
+
+       Only add an ad when it belongs to the
+       requested property when property_token is
+       available.
+    ============================================= */
+
+    if (
+        Array.isArray(
+            data.ads
+        )
+    ) {
+
+        data.ads.forEach(
+            ad => {
+
+                if (!ad) {
+
+                    return;
+
+                }
+
+
+                if (
+                    ad.property_token &&
+                    propertyToken &&
+                    String(
+                        ad.property_token
+                    ) !== String(
+                        propertyToken
+                    )
+                ) {
+
+                    return;
+
+                }
+
+
+                addProvider(
+                    ad
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =============================================
+       PROPERTY-LEVEL BOOKING SOURCES
+
+       Some responses can contain additional
+       provider structures. Check common arrays
+       without assuming they exist.
+    ============================================= */
+
+    const additionalProviderArrays = [
+
+        "booking_options",
+
+        "booking_providers",
+
+        "offers",
+
+        "rates"
+
+    ];
+
+
+    additionalProviderArrays.forEach(
+        arrayName => {
+
+            if (
+                Array.isArray(
+                    hotel[arrayName]
+                )
+            ) {
+
+                hotel[arrayName].forEach(
+                    provider => {
+
+                        addProvider(
+                            provider
+                        );
+
+                    }
+                );
+
+            }
+
+        }
+    );
+
+
+    /* =============================================
+       FINALIZE
+    ============================================= */
+
+    const finalOptions =
+        Array.from(
+            providerMap.values()
+        )
+            .map(
+                option =>
+                    deduplicateProvider(
+                        option
+                    )
+            )
+            .filter(
+                option =>
+                    option &&
+                    (
+                        option.link ||
+                        option.total_rate ||
+                        option.rate_per_night ||
+                        option.rooms.length ||
+                        option.rates.length
+                    )
+            );
+
+
+    return finalOptions;
+
+}
+
+
+/* =================================================
+   PROVIDER STATUS
+================================================= */
+
+function buildProviderStatus(
+    bookingOptions
+) {
+
+    const names =
+        bookingOptions.map(
+            option =>
+                String(
+                    option.provider ||
+                    ""
+                )
+                    .toLowerCase()
+        );
+
+
+    const booking =
+        names.some(
+            name =>
+                name.includes(
+                    "booking.com"
+                )
+        );
+
+
+    const expedia =
+        names.some(
+            name =>
+                name.includes(
+                    "expedia"
+                )
+        );
+
+
+    return {
+
+        booking_com: {
+
+            available:
+                booking,
+
+            message:
+                booking
+                    ? "Booking.com returned an offer for this hotel/search."
+                    : "Booking.com was not returned by Google Hotels for this hotel/search."
+
+        },
+
+        expedia: {
+
+            available:
+                expedia,
+
+            message:
+                expedia
+                    ? "Expedia returned an offer for this hotel/search."
+                    : "Expedia was not returned by Google Hotels for this hotel/search."
+
+        }
+
+    };
+
+}
+
+
+/* =================================================
    HOTEL DETAILS
 ================================================= */
 
@@ -148,121 +1305,6 @@ if (
 
     }
 
-
-    const serpURL =
-        new URL(
-            "https://serpapi.com/search"
-        );
-
-
-    serpURL.searchParams.set(
-        "engine",
-        "google_hotels"
-    );
-
-
-    serpURL.searchParams.set(
-        "property_token",
-        propertyToken
-    );
-
-
-    serpURL.searchParams.set(
-        "api_key",
-        process.env.SERPAPI_KEY
-    );
-
-
-    const response =
-        await fetch(
-            serpURL
-        );
-
-
-    const data =
-        await response.json();
-
-
-    console.log(
-        "HOTEL DETAILS STATUS:",
-        response.status
-    );
-
-
-    console.log(
-        "HOTEL DETAILS RESPONSE:",
-        data
-    );
-
-
-    if (
-        !response.ok ||
-        data.error
-    ) {
-
-        return res.status(
-            response.ok
-                ? 500
-                : response.status
-        ).json({
-
-            success: false,
-
-            error:
-                data.error ||
-                `SerpAPI returned ${response.status}`
-
-        });
-
-    }
-
-
-    return res.status(200).json({
-
-        success: true,
-
-        hotel:
-            data.property ||
-            data
-
-    });
-
-}
-
-
-/* =================================================
-   BOOKING OPTIONS
-================================================= */
-
-if (
-    action === "booking_options"
-) {
-
-    const propertyToken =
-        inputData.property_token;
-
-
-    if (!propertyToken) {
-
-        return res.status(400).json({
-
-            success: false,
-
-            error:
-                "property_token is required"
-
-        });
-
-    }
-
-
-    /* =============================================
-       OPTIONAL SEARCH PARAMETERS
-
-       These allow the frontend to explicitly
-       provide the dates / guests being displayed
-       in the booking overlay.
-    ============================================= */
 
     const checkIn =
         inputData.check_in ||
@@ -301,10 +1343,6 @@ if (
         );
 
 
-    /* =============================================
-       SERPAPI URL
-    ============================================= */
-
     const serpURL =
         new URL(
             "https://serpapi.com/search"
@@ -324,13 +1362,272 @@ if (
 
 
     /*
-       Only send these when supplied.
+       IMPORTANT:
 
-       The property token already identifies the
-       hotel, while these parameters make sure the
-       returned rates correspond to the user's
-       booking search.
+       Send the exact booking search parameters
+       when available so Google Hotels can return
+       provider prices for the actual stay.
     */
+
+    if (checkIn) {
+
+        serpURL.searchParams.set(
+            "check_in_date",
+            checkIn
+        );
+
+    }
+
+
+    if (checkOut) {
+
+        serpURL.searchParams.set(
+            "check_out_date",
+            checkOut
+        );
+
+    }
+
+
+    serpURL.searchParams.set(
+        "adults",
+        String(adults)
+    );
+
+
+    serpURL.searchParams.set(
+        "children",
+        String(children)
+    );
+
+
+    serpURL.searchParams.set(
+        "rooms",
+        String(rooms)
+    );
+
+
+    serpURL.searchParams.set(
+        "api_key",
+        process.env.SERPAPI_KEY
+    );
+
+
+    console.log(
+        "================================="
+    );
+
+    console.log(
+        "FETCHING HOTEL DETAILS"
+    );
+
+    console.log(
+        serpURL.toString()
+            .replace(
+                process.env.SERPAPI_KEY,
+                "HIDDEN"
+            )
+    );
+
+    console.log(
+        "================================="
+    );
+
+
+    const response =
+        await fetch(
+            serpURL
+        );
+
+
+    const data =
+        await response.json();
+
+
+    console.log(
+        "HOTEL DETAILS STATUS:",
+        response.status
+    );
+
+
+    if (
+        !response.ok ||
+        data.error
+    ) {
+
+        console.error(
+            "HOTEL DETAILS ERROR:",
+            data.error
+        );
+
+
+        return res.status(
+            response.ok
+                ? 500
+                : response.status
+        ).json({
+
+            success: false,
+
+            error:
+                data.error ||
+                `SerpAPI returned ${response.status}`
+
+        });
+
+    }
+
+
+    const hotel =
+        data.property ||
+        data;
+
+
+    const bookingOptions =
+        extractBookingOptions(
+            data,
+            propertyToken
+        );
+
+
+    console.log(
+        "DETAILS BOOKING PROVIDERS:",
+        bookingOptions.map(
+            option =>
+                option.provider
+        )
+    );
+
+
+    return res.status(200).json({
+
+        success: true,
+
+        property_token:
+            propertyToken,
+
+        hotel:
+            hotel,
+
+        booking_options:
+            bookingOptions,
+
+        booking_option_count:
+            bookingOptions.length,
+
+        provider_status:
+            buildProviderStatus(
+                bookingOptions
+            ),
+
+        search: {
+
+            check_in:
+                checkIn,
+
+            check_out:
+                checkOut,
+
+            adults:
+                adults,
+
+            children:
+                children,
+
+            rooms:
+                rooms
+
+        },
+
+        search_metadata:
+            data.search_metadata ||
+            null
+
+    });
+
+}
+
+
+/* =================================================
+   BOOKING OPTIONS
+================================================= */
+
+if (
+    action === "booking_options"
+) {
+
+    const propertyToken =
+        inputData.property_token;
+
+
+    if (!propertyToken) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            error:
+                "property_token is required"
+
+        });
+
+    }
+
+
+    const checkIn =
+        inputData.check_in ||
+        null;
+
+
+    const checkOut =
+        inputData.check_out ||
+        null;
+
+
+    const adults =
+        Math.max(
+            1,
+            Number(
+                inputData.adults
+            ) || 1
+        );
+
+
+    const children =
+        Math.max(
+            0,
+            Number(
+                inputData.children
+            ) || 0
+        );
+
+
+    const rooms =
+        Math.max(
+            1,
+            Number(
+                inputData.rooms
+            ) || 1
+        );
+
+
+    const serpURL =
+        new URL(
+            "https://serpapi.com/search"
+        );
+
+
+    serpURL.searchParams.set(
+        "engine",
+        "google_hotels"
+    );
+
+
+    serpURL.searchParams.set(
+        "property_token",
+        propertyToken
+    );
+
 
     if (checkIn) {
 
@@ -397,10 +1694,6 @@ if (
     );
 
 
-    /* =============================================
-       ONE SERPAPI CALL
-    ============================================= */
-
     const response =
         await fetch(
             serpURL
@@ -445,1109 +1738,21 @@ if (
     }
 
 
-    /* =============================================
-       PROPERTY
-    ============================================= */
-
     const hotel =
         data.property ||
         data;
 
 
-    /* =============================================
-       PROVIDER ARRAYS
-
-       Google Hotels can expose booking sources
-       through both prices and featured_prices.
-    ============================================= */
-
-    const prices =
-        Array.isArray(
-            hotel.prices
-        )
-            ? hotel.prices
-            : [];
-
-
-    const featuredPrices =
-        Array.isArray(
-            hotel.featured_prices
-        )
-            ? hotel.featured_prices
-            : [];
-
-
-    /* =============================================
-       NORMALIZATION HELPERS
-    ============================================= */
-
-    function normalizeRate(
-        rate
-    ) {
-
-        if (!rate) {
-
-            return null;
-
-        }
-
-
-        return {
-
-            lowest:
-                rate.lowest ||
-                null,
-
-            extracted_lowest:
-                Number.isFinite(
-                    Number(
-                        rate.extracted_lowest
-                    )
-                )
-                    ? Number(
-                        rate.extracted_lowest
-                    )
-                    : null,
-
-            before_taxes_fees:
-                rate.before_taxes_fees ||
-                null,
-
-            extracted_before_taxes_fees:
-                Number.isFinite(
-                    Number(
-                        rate.extracted_before_taxes_fees
-                    )
-                )
-                    ? Number(
-                        rate.extracted_before_taxes_fees
-                    )
-                    : null
-
-        };
-
-    }
-
-
-    function normalizeBeds(
-        beds
-    ) {
-
-        if (
-            !Array.isArray(beds)
-        ) {
-
-            return [];
-
-        }
-
-
-        return beds
-            .map(
-                bed => {
-
-                    if (!bed) {
-                        return null;
-                    }
-
-
-                    return {
-
-                        type:
-                            bed.type ||
-                            null,
-
-                        count:
-                            Number(
-                                bed.count
-                            ) || 1
-
-                    };
-
-                }
-            )
-            .filter(Boolean);
-
-    }
-
-
-    function normalizeRateOption(
-        rate,
-        providerName
-    ) {
-
-        if (!rate) {
-
-            return null;
-
-        }
-
-
-        return {
-
-            provider:
-                providerName ||
-                null,
-
-            link:
-                rate.link ||
-                null,
-
-            room_name:
-                rate.name ||
-                rate.room_name ||
-                null,
-
-            num_guests:
-                Number(
-                    rate.num_guests
-                ) || null,
-
-            rate_per_night:
-                normalizeRate(
-                    rate.rate_per_night
-                ),
-
-            total_rate:
-                normalizeRate(
-                    rate.total_rate
-                ),
-
-            original_rate_per_night:
-                normalizeRate(
-                    rate.original_rate_per_night
-                ),
-
-            original_total_rate:
-                normalizeRate(
-                    rate.original_total_rate
-                ),
-
-            free_cancellation:
-                rate.free_cancellation === true,
-
-            free_cancellation_until_date:
-                rate.free_cancellation_until_date ||
-                null,
-
-            free_cancellation_until_time:
-                rate.free_cancellation_until_time ||
-                null,
-
-            breakfast_included:
-                rate.breakfast_included === true,
-
-            beds:
-                normalizeBeds(
-                    rate.beds
-                ),
-
-            inclusions:
-                Array.isArray(
-                    rate.inclusions
-                )
-                    ? rate.inclusions
-                    : [],
-
-            benefits:
-                rate.benefits ||
-                null,
-
-            discount_remarks:
-                Array.isArray(
-                    rate.discount_remarks
-                )
-                    ? rate.discount_remarks
-                    : []
-
-        };
-
-    }
-
-
-    /* =============================================
-       BUILD PROVIDER OPTIONS
-    ============================================= */
-
-    const bookingOptions = [];
-
-
-    /* =============================================
-       PRICES
-
-       These are provider-level offers.
-    ============================================= */
-
-    prices.forEach(
-        price => {
-
-            if (!price) {
-                return;
-            }
-
-
-            const provider =
-                price.source ||
-                "Booking provider";
-
-
-            const option = {
-
-                provider:
-                    provider,
-
-                logo:
-                    price.logo ||
-                    null,
-
-                official:
-                    price.official === true,
-
-                link:
-                    price.link ||
-                    null,
-
-                num_guests:
-                    Number(
-                        price.num_guests
-                    ) || null,
-
-                rate_per_night:
-                    normalizeRate(
-                        price.rate_per_night
-                    ),
-
-                total_rate:
-                    normalizeRate(
-                        price.total_rate
-                    ),
-
-                original_rate_per_night:
-                    normalizeRate(
-                        price.original_rate_per_night
-                    ),
-
-                original_total_rate:
-                    normalizeRate(
-                        price.original_total_rate
-                    ),
-
-                free_cancellation:
-                    price.free_cancellation === true,
-
-                free_cancellation_until_date:
-                    price.free_cancellation_until_date ||
-                    null,
-
-                free_cancellation_until_time:
-                    price.free_cancellation_until_time ||
-                    null,
-
-                breakfast_included:
-                    price.breakfast_included === true,
-
-                benefits:
-                    price.benefits ||
-                    null,
-
-                discount_remarks:
-                    Array.isArray(
-                        price.discount_remarks
-                    )
-                        ? price.discount_remarks
-                        : [],
-
-                rooms:
-                    [],
-
-                rates:
-                    []
-
-            };
-
-
-            /* =====================================
-               ROOM OPTIONS
-            ===================================== */
-
-            if (
-                Array.isArray(
-                    price.rooms
-                )
-            ) {
-
-                price.rooms.forEach(
-                    room => {
-
-                        if (!room) {
-                            return;
-                        }
-
-
-                        const roomOption = {
-
-                            name:
-                                room.name ||
-                                null,
-
-                            images:
-                                Array.isArray(
-                                    room.images
-                                )
-                                    ? room.images
-                                    : [],
-
-                            link:
-                                room.link ||
-                                price.link ||
-                                null,
-
-                            num_guests:
-                                Number(
-                                    room.num_guests
-                                ) || null,
-
-                            rate_per_night:
-                                normalizeRate(
-                                    room.rate_per_night
-                                ),
-
-                            total_rate:
-                                normalizeRate(
-                                    room.total_rate
-                                ),
-
-                            original_rate_per_night:
-                                normalizeRate(
-                                    room.original_rate_per_night
-                                ),
-
-                            original_total_rate:
-                                normalizeRate(
-                                    room.original_total_rate
-                                ),
-
-                            free_cancellation:
-                                room.free_cancellation === true,
-
-                            free_cancellation_until_date:
-                                room.free_cancellation_until_date ||
-                                null,
-
-                            free_cancellation_until_time:
-                                room.free_cancellation_until_time ||
-                                null,
-
-                            breakfast_included:
-                                room.breakfast_included === true,
-
-                            beds:
-                                normalizeBeds(
-                                    room.beds
-                                ),
-
-                            inclusions:
-                                Array.isArray(
-                                    room.inclusions
-                                )
-                                    ? room.inclusions
-                                    : [],
-
-                            benefits:
-                                room.benefits ||
-                                null,
-
-                            rates:
-                                Array.isArray(
-                                    room.rates
-                                )
-                                    ? room.rates
-                                        .map(
-                                            rate =>
-                                                normalizeRateOption(
-                                                    rate,
-                                                    provider
-                                                )
-                                        )
-                                        .filter(Boolean)
-                                    : []
-
-                        };
-
-
-                        option.rooms.push(
-                            roomOption
-                        );
-
-                    }
-                );
-
-            }
-
-
-            /* =====================================
-               DIRECT RATE OPTIONS
-            ===================================== */
-
-            if (
-                Array.isArray(
-                    price.rates
-                )
-            ) {
-
-                option.rates =
-                    price.rates
-                        .map(
-                            rate =>
-                                normalizeRateOption(
-                                    rate,
-                                    provider
-                                )
-                        )
-                        .filter(Boolean);
-
-            }
-
-
-            bookingOptions.push(
-                option
-            );
-
-        }
-    );
-
-
-    /* =============================================
-       FEATURED PRICES
-
-       Add any providers not already represented
-       by prices.
-    ============================================= */
-
-    featuredPrices.forEach(
-        featured => {
-
-            if (!featured) {
-                return;
-            }
-
-
-            const provider =
-                featured.source ||
-                "Booking provider";
-
-
-            const existing =
-                bookingOptions.find(
-                    option =>
-                        String(
-                            option.provider
-                        ).toLowerCase() ===
-                        String(
-                            provider
-                        ).toLowerCase()
-                );
-
-
-            /*
-               If the provider already exists,
-               merge its richer room information.
-            */
-
-            if (existing) {
-
-                if (
-                    Array.isArray(
-                        featured.rooms
-                    )
-                ) {
-
-                    featured.rooms.forEach(
-                        room => {
-
-                            if (!room) {
-                                return;
-                            }
-
-
-                            existing.rooms.push({
-
-                                name:
-                                    room.name ||
-                                    null,
-
-                                images:
-                                    Array.isArray(
-                                        room.images
-                                    )
-                                        ? room.images
-                                        : [],
-
-                                link:
-                                    room.link ||
-                                    featured.link ||
-                                    null,
-
-                                num_guests:
-                                    Number(
-                                        room.num_guests
-                                    ) || null,
-
-                                rate_per_night:
-                                    normalizeRate(
-                                        room.rate_per_night
-                                    ),
-
-                                total_rate:
-                                    normalizeRate(
-                                        room.total_rate
-                                    ),
-
-                                original_rate_per_night:
-                                    normalizeRate(
-                                        room.original_rate_per_night
-                                    ),
-
-                                original_total_rate:
-                                    normalizeRate(
-                                        room.original_total_rate
-                                    ),
-
-                                free_cancellation:
-                                    room.free_cancellation === true,
-
-                                free_cancellation_until_date:
-                                    room.free_cancellation_until_date ||
-                                    null,
-
-                                free_cancellation_until_time:
-                                    room.free_cancellation_until_time ||
-                                    null,
-
-                                breakfast_included:
-                                    room.breakfast_included === true,
-
-                                beds:
-                                    normalizeBeds(
-                                        room.beds
-                                    ),
-
-                                inclusions:
-                                    Array.isArray(
-                                        room.inclusions
-                                    )
-                                        ? room.inclusions
-                                        : [],
-
-                                benefits:
-                                    room.benefits ||
-                                    null,
-
-                                rates:
-                                    Array.isArray(
-                                        room.rates
-                                    )
-                                        ? room.rates
-                                            .map(
-                                                rate =>
-                                                    normalizeRateOption(
-                                                        rate,
-                                                        provider
-                                                    )
-                                            )
-                                            .filter(Boolean)
-                                        : []
-
-                            });
-
-                        }
-                    );
-
-                }
-
-
-                return;
-
-            }
-
-
-            /* =====================================
-               NEW FEATURED PROVIDER
-            ===================================== */
-
-            bookingOptions.push({
-
-                provider:
-                    provider,
-
-                logo:
-                    featured.logo ||
-                    null,
-
-                official:
-                    featured.official === true,
-
-                link:
-                    featured.link ||
-                    null,
-
-                num_guests:
-                    Number(
-                        featured.num_guests
-                    ) || null,
-
-                rate_per_night:
-                    normalizeRate(
-                        featured.rate_per_night
-                    ),
-
-                total_rate:
-                    normalizeRate(
-                        featured.total_rate
-                    ),
-
-                original_rate_per_night:
-                    normalizeRate(
-                        featured.original_rate_per_night
-                    ),
-
-                original_total_rate:
-                    normalizeRate(
-                        featured.original_total_rate
-                    ),
-
-                free_cancellation:
-                    featured.free_cancellation === true,
-
-                free_cancellation_until_date:
-                    featured.free_cancellation_until_date ||
-                    null,
-
-                free_cancellation_until_time:
-                    featured.free_cancellation_until_time ||
-                    null,
-
-                breakfast_included:
-                    featured.breakfast_included === true,
-
-                benefits:
-                    featured.benefits ||
-                    null,
-
-                discount_remarks:
-                    Array.isArray(
-                        featured.discount_remarks
-                    )
-                        ? featured.discount_remarks
-                        : [],
-
-                rooms:
-                    Array.isArray(
-                        featured.rooms
-                    )
-                        ? featured.rooms
-                            .map(
-                                room => {
-
-                                    if (!room) {
-                                        return null;
-                                    }
-
-
-                                    return {
-
-                                        name:
-                                            room.name ||
-                                            null,
-
-                                        images:
-                                            Array.isArray(
-                                                room.images
-                                            )
-                                                ? room.images
-                                                : [],
-
-                                        link:
-                                            room.link ||
-                                            featured.link ||
-                                            null,
-
-                                        num_guests:
-                                            Number(
-                                                room.num_guests
-                                            ) || null,
-
-                                        rate_per_night:
-                                            normalizeRate(
-                                                room.rate_per_night
-                                            ),
-
-                                        total_rate:
-                                            normalizeRate(
-                                                room.total_rate
-                                            ),
-
-                                        original_rate_per_night:
-                                            normalizeRate(
-                                                room.original_rate_per_night
-                                            ),
-
-                                        original_total_rate:
-                                            normalizeRate(
-                                                room.original_total_rate
-                                            ),
-
-                                        free_cancellation:
-                                            room.free_cancellation === true,
-
-                                        free_cancellation_until_date:
-                                            room.free_cancellation_until_date ||
-                                            null,
-
-                                        free_cancellation_until_time:
-                                            room.free_cancellation_until_time ||
-                                            null,
-
-                                        breakfast_included:
-                                            room.breakfast_included === true,
-
-                                        beds:
-                                            normalizeBeds(
-                                                room.beds
-                                            ),
-
-                                        inclusions:
-                                            Array.isArray(
-                                                room.inclusions
-                                            )
-                                                ? room.inclusions
-                                                : [],
-
-                                        benefits:
-                                            room.benefits ||
-                                            null,
-
-                                        rates:
-                                            Array.isArray(
-                                                room.rates
-                                            )
-                                                ? room.rates
-                                                    .map(
-                                                        rate =>
-                                                            normalizeRateOption(
-                                                                rate,
-                                                                provider
-                                                            )
-                                                    )
-                                                    .filter(Boolean)
-                                                : []
-
-                                    };
-
-                                }
-                            )
-                            .filter(Boolean)
-                        : [],
-
-                rates:
-                    Array.isArray(
-                        featured.rates
-                    )
-                        ? featured.rates
-                            .map(
-                                rate =>
-                                    normalizeRateOption(
-                                        rate,
-                                        provider
-                                    )
-                            )
-                            .filter(Boolean)
-                        : []
-
-            });
-
-        }
-    );
-
-
-    /* =============================================
-       DEDUPLICATE ROOM OPTIONS
-    ============================================= */
-
-    bookingOptions.forEach(
-        option => {
-
-            const roomMap =
-                new Map();
-
-
-            option.rooms =
-                option.rooms.filter(
-                    room => {
-
-                        const key =
-                            [
-                                room.name,
-                                room.link,
-                                room.total_rate
-                                    ?.extracted_lowest
-                            ]
-                                .join("|");
-
-
-                        if (
-                            roomMap.has(key)
-                        ) {
-
-                            return false;
-
-                        }
-
-
-                        roomMap.set(
-                            key,
-                            true
-                        );
-
-
-                        return true;
-
-                    }
-                );
-
-
-            const rateMap =
-                new Map();
-
-
-            option.rates =
-                option.rates.filter(
-                    rate => {
-
-                        const key =
-                            [
-                                rate.link,
-                                rate.room_name,
-                                rate.total_rate
-                                    ?.extracted_lowest
-                            ]
-                                .join("|");
-
-
-                        if (
-                            rateMap.has(key)
-                        ) {
-
-                            return false;
-
-                        }
-
-
-                        rateMap.set(
-                            key,
-                            true
-                        );
-
-
-                        return true;
-
-                    }
-                );
-
-        }
-    );
-
-
-    /* =============================================
-       REMOVE DUPLICATE PROVIDERS
-    ============================================= */
-
-    const providerMap =
-        new Map();
-
-
-    bookingOptions.forEach(
-        option => {
-
-            if (!option) {
-                return;
-            }
-
-
-            const key =
-                String(
-                    option.provider ||
-                    ""
-                )
-                    .trim()
-                    .toLowerCase();
-
-
-            if (!key) {
-                return;
-            }
-
-
-            if (
-                !providerMap.has(key)
-            ) {
-
-                providerMap.set(
-                    key,
-                    option
-                );
-
-                return;
-
-            }
-
-
-            /*
-               Merge additional room/rate data
-               if the provider appeared in both
-               prices and featured_prices.
-            */
-
-            const existing =
-                providerMap.get(
-                    key
-                );
-
-
-            existing.rooms.push(
-                ...(option.rooms || [])
-            );
-
-
-            existing.rates.push(
-                ...(option.rates || [])
-            );
-
-
-            if (
-                !existing.logo &&
-                option.logo
-            ) {
-
-                existing.logo =
-                    option.logo;
-
-            }
-
-
-            if (
-                !existing.link &&
-                option.link
-            ) {
-
-                existing.link =
-                    option.link;
-
-            }
-
-        }
-    );
-
-
-    let finalBookingOptions =
-        Array.from(
-            providerMap.values()
+    const finalBookingOptions =
+        extractBookingOptions(
+            data,
+            propertyToken
         );
 
 
-    /* =============================================
-       FINAL ROOM/RATE DEDUPLICATION
-    ============================================= */
-
-    finalBookingOptions.forEach(
-        option => {
-
-            const rooms =
-                new Map();
-
-
-            option.rooms =
-                (option.rooms || [])
-                    .filter(
-                        room => {
-
-                            const key =
-                                [
-                                    room.name,
-                                    room.link,
-                                    room.total_rate
-                                        ?.extracted_lowest
-                                ]
-                                    .join("|");
-
-
-                            if (
-                                rooms.has(key)
-                            ) {
-
-                                return false;
-
-                            }
-
-
-                            rooms.set(
-                                key,
-                                true
-                            );
-
-
-                            return true;
-
-                        }
-                    );
-
-
-            const rates =
-                new Map();
-
-
-            option.rates =
-                (option.rates || [])
-                    .filter(
-                        rate => {
-
-                            const key =
-                                [
-                                    rate.link,
-                                    rate.room_name,
-                                    rate.total_rate
-                                        ?.extracted_lowest
-                                ]
-                                    .join("|");
-
-
-                            if (
-                                rates.has(key)
-                            ) {
-
-                                return false;
-
-                            }
-
-
-                            rates.set(
-                                key,
-                                true
-                            );
-
-
-                            return true;
-
-                        }
-                    );
-
-        }
+    console.log(
+        "================================="
     );
-
-
-    /* =============================================
-       LOG PROVIDERS
-    ============================================= */
 
     console.log(
         "BOOKING PROVIDERS FOUND:",
@@ -1557,16 +1762,22 @@ if (
         )
     );
 
-
     console.log(
-        "TOTAL BOOKING PROVIDERS:",
+        "BOOKING PROVIDER COUNT:",
         finalBookingOptions.length
     );
 
+    console.log(
+        "PROVIDER STATUS:",
+        buildProviderStatus(
+            finalBookingOptions
+        )
+    );
 
-    /* =============================================
-       RETURN BOOKING DATA
-    ============================================= */
+    console.log(
+        "================================="
+    );
+
 
     return res.status(200).json({
 
@@ -1583,6 +1794,10 @@ if (
 
             address:
                 hotel.address ||
+                null,
+
+            description:
+                hotel.description ||
                 null,
 
             image:
@@ -1635,6 +1850,11 @@ if (
 
         booking_option_count:
             finalBookingOptions.length,
+
+        provider_status:
+            buildProviderStatus(
+                finalBookingOptions
+            ),
 
         search_metadata:
             data.search_metadata ||
@@ -1785,12 +2005,6 @@ if (
     console.log(
         "HOTEL REVIEWS STATUS:",
         response.status
-    );
-
-
-    console.log(
-        "HOTEL REVIEWS RESPONSE:",
-        data
     );
 
 
@@ -1960,6 +2174,10 @@ if (!checkOut) {
 }
 
 
+/* =================================================
+   HOTEL SEARCH LOGGING
+================================================= */
+
 console.log(
     "HOTEL SEARCH:",
     {
@@ -2030,6 +2248,51 @@ async function fetchHotels(
     );
 
 
+    /*
+       English response.
+    */
+
+    serpURL.searchParams.set(
+        "hl",
+        "en"
+    );
+
+
+    /*
+       US Google Hotels results are generally
+       useful for international booking providers.
+       This can be overridden by the frontend
+       by passing gl.
+    */
+
+    if (
+        inputData.gl
+    ) {
+
+        serpURL.searchParams.set(
+            "gl",
+            String(
+                inputData.gl
+            )
+        );
+
+    }
+
+
+    if (
+        inputData.currency
+    ) {
+
+        serpURL.searchParams.set(
+            "currency",
+            String(
+                inputData.currency
+            )
+        );
+
+    }
+
+
     if (
         pageToken
     ) {
@@ -2092,7 +2355,7 @@ async function fetchHotels(
 
 
 /* =================================================
-   GET HOTEL RESULTS
+   GET FIRST HOTEL RESULTS
 ================================================= */
 
 let allHotels = [];
@@ -2134,9 +2397,17 @@ let page =
     0;
 
 
+/*
+   Pull additional result pages.
+
+   Increased from 2 to 4 additional pages so
+   more hotels are returned when pagination is
+   available.
+*/
+
 while (
     nextPageToken &&
-    page < 2
+    page < 4
 ) {
 
     const nextData =
@@ -2180,7 +2451,11 @@ const uniqueHotels =
 allHotels.forEach(
     hotel => {
 
-        if (!hotel) return;
+        if (!hotel) {
+
+            return;
+
+        }
 
 
         const key =
@@ -2235,7 +2510,7 @@ allHotels =
 
 
 /* =================================================
-   FINAL RESPONSE
+   FINAL HOTEL RESPONSE
 ================================================= */
 
 console.log(
@@ -2275,6 +2550,11 @@ return res.status(200).json({
 });
 
 }
+
+
+/* =================================================
+   ERROR HANDLER
+================================================= */
 
 catch (error) {
 
