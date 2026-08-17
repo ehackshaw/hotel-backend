@@ -19,19 +19,15 @@ export default async function handler(req, res) {
         "Content-Type"
     );
 
-
     if(req.method === "OPTIONS"){
         return res.status(200).end();
     }
 
-
     if(req.method !== "GET"){
-
         return res.status(405).json({
             success:false,
             error:"Method not allowed"
         });
-
     }
 
 
@@ -49,12 +45,9 @@ export default async function handler(req, res) {
     if(!GOOGLE_KEY){
 
         return res.status(500).json({
-
             success:false,
-
             error:
                 "Google Places API key is missing. Add GOOGLE_PLACES_API_KEY to Vercel Environment Variables."
-
         });
 
     }
@@ -63,12 +56,9 @@ export default async function handler(req, res) {
     if(!SERP_KEY){
 
         return res.status(500).json({
-
             success:false,
-
             error:
                 "SerpApi key is missing. Add SERPAPI_KEY to Vercel Environment Variables."
-
         });
 
     }
@@ -83,113 +73,104 @@ export default async function handler(req, res) {
             req.query.destination || ""
         ).trim();
 
-
     const checkin =
         String(
             req.query.checkin || ""
         ).trim();
-
 
     const checkout =
         String(
             req.query.checkout || ""
         ).trim();
 
-
     const rooms =
-        Number(
-            req.query.rooms || 1
+        Math.max(
+            1,
+            Number(req.query.rooms || 1)
         );
-
 
     const adults =
-        Number(
-            req.query.adults || 1
+        Math.max(
+            1,
+            Number(req.query.adults || 1)
         );
-
 
     const children =
-        Number(
-            req.query.children || 0
+        Math.max(
+            0,
+            Number(req.query.children || 0)
         );
-
 
     const babies =
-        Number(
-            req.query.babies || 0
+        Math.max(
+            0,
+            Number(req.query.babies || 0)
         );
-
 
     const seniors =
-        Number(
-            req.query.seniors || 0
+        Math.max(
+            0,
+            Number(req.query.seniors || 0)
         );
 
-
     const guests =
-        Number(
-            req.query.guests ||
-            adults ||
-            1
+        Math.max(
+            1,
+            Number(
+                req.query.guests ||
+                adults ||
+                1
+            )
         );
 
 
     if(!destination){
 
         return res.status(400).json({
-
             success:false,
-
-            error:
-                "Destination is required."
-
+            error:"Destination is required."
         });
 
     }
-
 
     if(!checkin){
 
         return res.status(400).json({
-
             success:false,
-
-            error:
-                "Check-in date is required."
-
+            error:"Check-in date is required."
         });
 
     }
 
-
     if(!checkout){
 
         return res.status(400).json({
-
             success:false,
-
-            error:
-                "Check-out date is required."
-
+            error:"Check-out date is required."
         });
 
     }
 
 
     console.log(
-        "HOTEL SEARCH:",
-        {
-            destination,
-            checkin,
-            checkout,
-            rooms,
-            adults,
-            children,
-            babies,
-            seniors,
-            guests
-        }
+        "===================================="
     );
+
+    console.log(
+        "BOKKARA HOTEL SEARCH"
+    );
+
+    console.log({
+        destination,
+        checkin,
+        checkout,
+        rooms,
+        adults,
+        children,
+        babies,
+        seniors,
+        guests
+    });
 
 
     /* =================================================
@@ -231,7 +212,6 @@ export default async function handler(req, res) {
 
         }
 
-
         const R = 6371;
 
         const dLat =
@@ -242,7 +222,6 @@ export default async function handler(req, res) {
             Math.PI /
             180;
 
-
         const dLon =
             (
                 Number(lon2) -
@@ -251,45 +230,30 @@ export default async function handler(req, res) {
             Math.PI /
             180;
 
-
         const a =
-
-            Math.sin(
-                dLat / 2
-            ) ** 2
-
+            Math.sin(dLat / 2) ** 2
             +
-
             Math.cos(
                 Number(lat1) *
                 Math.PI /
                 180
             )
-
             *
-
             Math.cos(
                 Number(lat2) *
                 Math.PI /
                 180
             )
-
             *
-
-            Math.sin(
-                dLon / 2
-            ) ** 2;
-
+            Math.sin(dLon / 2) ** 2;
 
         return (
-
             2 *
             R *
             Math.atan2(
                 Math.sqrt(a),
                 Math.sqrt(1 - a)
             )
-
         );
 
     }
@@ -301,7 +265,6 @@ export default async function handler(req, res) {
             return "";
         }
 
-
         if(
             typeof value === "string"
         ){
@@ -310,15 +273,14 @@ export default async function handler(req, res) {
 
         }
 
-
         if(
+            typeof value === "object" &&
             value.text
         ){
 
             return value.text;
 
         }
-
 
         return "";
 
@@ -330,73 +292,117 @@ export default async function handler(req, res) {
         const amenities = [];
 
 
-        if(place.servesBreakfast){
-            amenities.push(
-                "Breakfast"
-            );
-        }
+        const booleanAmenities = {
+
+            servesBreakfast:
+                "Breakfast",
+
+            servesBrunch:
+                "Brunch",
+
+            servesLunch:
+                "Lunch",
+
+            servesDinner:
+                "Restaurant",
+
+            servesCoffee:
+                "Coffee",
+
+            servesVegetarianFood:
+                "Vegetarian Food",
+
+            servesBeer:
+                "Bar",
+
+            servesWine:
+                "Wine",
+
+            servesCocktails:
+                "Cocktails",
+
+            servesDessert:
+                "Dessert",
+
+            goodForChildren:
+                "Family Friendly",
+
+            goodForGroups:
+                "Good for Groups",
+
+            allowsDogs:
+                "Pet Friendly",
+
+            takeout:
+                "Takeout",
+
+            dineIn:
+                "Dine In",
+
+            outdoorSeating:
+                "Outdoor Seating",
+
+            reservable:
+                "Reservations",
+
+            restroom:
+                "Restrooms",
+
+            delivery:
+                "Delivery"
+
+        };
 
 
-        if(place.servesLunch){
-            amenities.push(
-                "Lunch"
-            );
-        }
+        Object.keys(
+            booleanAmenities
+        ).forEach(
+            key => {
+
+                if(
+                    place[key] === true
+                ){
+
+                    amenities.push(
+                        booleanAmenities[key]
+                    );
+
+                }
+
+            }
+        );
 
 
-        if(place.servesDinner){
-            amenities.push(
-                "Restaurant"
-            );
-        }
+        if(
+            place.parkingOptions
+        ){
 
-
-        if(place.servesCoffee){
-            amenities.push(
-                "Coffee"
-            );
-        }
-
-
-        if(place.servesVegetarianFood){
-            amenities.push(
-                "Vegetarian Food"
-            );
-        }
-
-
-        if(place.goodForChildren){
-            amenities.push(
-                "Family Friendly"
-            );
-        }
-
-
-        if(place.goodForGroups){
-            amenities.push(
-                "Good for Groups"
-            );
-        }
-
-
-        if(place.allowsDogs){
-            amenities.push(
-                "Pet Friendly"
-            );
-        }
-
-
-        if(place.parkingOptions){
             amenities.push(
                 "Parking"
             );
+
         }
 
 
-        if(place.accessibilityOptions){
+        if(
+            place.accessibilityOptions
+        ){
+
             amenities.push(
                 "Accessible"
             );
+
+        }
+
+
+        if(
+            place.paymentOptions
+        ){
+
+            amenities.push(
+                "Payment Options"
+            );
+
         }
 
 
@@ -415,14 +421,99 @@ export default async function handler(req, res) {
 
     let googleHotels = [];
 
+    let googleError = null;
+
 
     try{
 
+        const googleFieldMask = [
+
+            "places.id",
+
+            "places.name",
+
+            "places.displayName",
+
+            "places.formattedAddress",
+
+            "places.location",
+
+            "places.rating",
+
+            "places.userRatingCount",
+
+            "places.websiteUri",
+
+            "places.internationalPhoneNumber",
+
+            "places.googleMapsUri",
+
+            "places.photos",
+
+            "places.editorialSummary",
+
+            "places.generativeSummary",
+
+            "places.reviewSummary",
+
+            "places.reviews",
+
+            "places.types",
+
+            "places.primaryType",
+
+            "places.businessStatus",
+
+            "places.accessibilityOptions",
+
+            "places.allowsDogs",
+
+            "places.delivery",
+
+            "places.dineIn",
+
+            "places.goodForChildren",
+
+            "places.goodForGroups",
+
+            "places.outdoorSeating",
+
+            "places.parkingOptions",
+
+            "places.paymentOptions",
+
+            "places.reservable",
+
+            "places.restroom",
+
+            "places.servesBeer",
+
+            "places.servesBreakfast",
+
+            "places.servesBrunch",
+
+            "places.servesCocktails",
+
+            "places.servesCoffee",
+
+            "places.servesDessert",
+
+            "places.servesDinner",
+
+            "places.servesLunch",
+
+            "places.servesVegetarianFood",
+
+            "places.servesWine",
+
+            "places.takeout"
+
+        ].join(",");
+
+
         const googleResponse =
             await fetch(
-
                 "https://places.googleapis.com/v1/places:searchText",
-
                 {
 
                     method:"POST",
@@ -435,31 +526,10 @@ export default async function handler(req, res) {
                         "X-Goog-Api-Key":
                             GOOGLE_KEY,
 
-                        /*
-                         * IMPORTANT:
-                         * Keep this field mask conservative.
-                         */
-
                         "X-Goog-FieldMask":
-                            [
-                                "places.id",
-                                "places.displayName",
-                                "places.formattedAddress",
-                                "places.location",
-                                "places.rating",
-                                "places.userRatingCount",
-                                "places.websiteUri",
-                                "places.internationalPhoneNumber",
-                                "places.googleMapsUri",
-                                "places.photos",
-                                "places.editorialSummary",
-                                "places.types",
-                                "places.primaryType",
-                                "places.businessStatus"
-                            ].join(",")
+                            googleFieldMask
 
                     },
-
 
                     body:
                         JSON.stringify({
@@ -476,12 +546,30 @@ export default async function handler(req, res) {
                         })
 
                 }
-
             );
 
 
-        const googleData =
-            await googleResponse.json();
+        const googleText =
+            await googleResponse.text();
+
+
+        let googleData = {};
+
+        try{
+
+            googleData =
+                JSON.parse(
+                    googleText
+                );
+
+        }
+        catch(error){
+
+            googleData = {
+                raw:googleText
+            };
+
+        }
 
 
         console.log(
@@ -492,64 +580,42 @@ export default async function handler(req, res) {
 
         if(!googleResponse.ok){
 
+            googleError =
+                googleData?.error?.message ||
+                googleData?.error ||
+                googleData?.raw ||
+                `Google Places HTTP ${googleResponse.status}`;
+
             console.error(
                 "GOOGLE PLACES ERROR:",
                 googleData
             );
 
+        }
+        else{
 
-            return res.status(500).json({
-
-                success:false,
-
-                error:
-                    "Google Places request failed.",
-
-                googleError:
-                    googleData.error?.message ||
-                    googleData.error ||
-                    googleData
-
-            });
+            googleHotels =
+                Array.isArray(
+                    googleData.places
+                )
+                ?
+                googleData.places
+                :
+                [];
 
         }
 
 
-        googleHotels =
-            Array.isArray(
-                googleData.places
-            )
-            ?
-            googleData.places
-            :
-            [];
-
-
-        console.log(
-            "GOOGLE HOTELS FOUND:",
-            googleHotels.length
-        );
-
     }
     catch(error){
+
+        googleError =
+            error.message;
 
         console.error(
             "GOOGLE FETCH ERROR:",
             error
         );
-
-
-        return res.status(500).json({
-
-            success:false,
-
-            error:
-                "Unable to connect to Google Places.",
-
-            details:
-                error.message
-
-        });
 
     }
 
@@ -610,8 +676,27 @@ export default async function handler(req, res) {
             );
 
 
-        const serpData =
-            await serpResponse.json();
+        const serpText =
+            await serpResponse.text();
+
+
+        let serpData = {};
+
+        try{
+
+            serpData =
+                JSON.parse(
+                    serpText
+                );
+
+        }
+        catch(error){
+
+            serpData = {
+                raw:serpText
+            };
+
+        }
 
 
         console.log(
@@ -623,7 +708,8 @@ export default async function handler(req, res) {
         if(!serpResponse.ok){
 
             serpError =
-                serpData.error ||
+                serpData?.error ||
+                serpData?.raw ||
                 `SerpApi HTTP ${serpResponse.status}`;
 
             console.error(
@@ -633,6 +719,16 @@ export default async function handler(req, res) {
 
         }
         else{
+
+            if(
+                serpData.error
+            ){
+
+                serpError =
+                    serpData.error;
+
+            }
+
 
             serpHotels =
                 Array.isArray(
@@ -645,11 +741,6 @@ export default async function handler(req, res) {
 
         }
 
-
-        console.log(
-            "SERPAPI HOTELS FOUND:",
-            serpHotels.length
-        );
 
     }
     catch(error){
@@ -682,7 +773,6 @@ export default async function handler(req, res) {
                 const googleLat =
                     place.location?.latitude;
 
-
                 const googleLng =
                     place.location?.longitude;
 
@@ -700,7 +790,7 @@ export default async function handler(req, res) {
                 ){
 
                     if(
-                        !serpHotel.name
+                        !serpHotel?.name
                     ){
 
                         continue;
@@ -728,27 +818,28 @@ export default async function handler(req, res) {
                         );
 
 
+                    const serpLat =
+                        serpHotel
+                            .gps_coordinates
+                            ?.latitude;
+
+
+                    const serpLng =
+                        serpHotel
+                            .gps_coordinates
+                            ?.longitude;
+
+
                     const distance =
                         distanceKm(
 
                             googleLat,
-
                             googleLng,
-
-                            serpHotel
-                                .gps_coordinates
-                                ?.latitude,
-
-                            serpHotel
-                                .gps_coordinates
-                                ?.longitude
+                            serpLat,
+                            serpLng
 
                         );
 
-
-                    /*
-                     * Exact name is strongest.
-                     */
 
                     if(exact){
 
@@ -772,10 +863,6 @@ export default async function handler(req, res) {
 
                     }
 
-
-                    /*
-                     * Partial name + nearby.
-                     */
 
                     if(
                         partial &&
@@ -812,7 +899,6 @@ export default async function handler(req, res) {
                     best?.rate_per_night ||
                     {};
 
-
                 const total =
                     best?.total_rate ||
                     {};
@@ -822,44 +908,88 @@ export default async function handler(req, res) {
                    DESCRIPTION
                 ================================================= */
 
-                const description =
-
+                const editorial =
                     summaryText(
                         place.editorialSummary
                     );
+
+
+                const generative =
+                    summaryText(
+                        place.generativeSummary
+                    );
+
+
+                const description =
+                    generative ||
+                    editorial ||
+                    "";
+
+
+                /* =================================================
+                   REVIEWS
+                ================================================= */
+
+                const reviewSummary =
+                    place.reviewSummary ||
+                    null;
+
+
+                const reviews =
+                    Array.isArray(
+                        place.reviews
+                    )
+                    ?
+                    place.reviews
+                    :
+                    [];
 
 
                 /* =================================================
                    PHOTOS
                 ================================================= */
 
-                const photos = [];
-
-
-                if(
+                const photos =
                     Array.isArray(
                         place.photos
                     )
-                ){
-
+                    ?
                     place.photos
-                        .forEach(
+                        .map(
                             photo => {
 
-                                if(
-                                    photo.name
-                                ){
+                                return {
 
-                                    photos.push(
-                                        photo.name
-                                    );
+                                    name:
+                                        photo.name ||
+                                        "",
 
-                                }
+                                    width:
+                                        photo.widthPx ||
+                                        null,
+
+                                    height:
+                                        photo.heightPx ||
+                                        null
+
+                                };
 
                             }
-                        );
+                        )
+                    :
+                    [];
 
-                }
+
+                /*
+                 * Google photo resource.
+                 *
+                 * The frontend should not use this
+                 * directly as a normal image URL.
+                 */
+
+                const firstPhoto =
+                    photos[0]?.name ||
+                    "";
 
 
                 /* =================================================
@@ -868,12 +998,11 @@ export default async function handler(req, res) {
 
                 return {
 
-                    /*
-                     * GOOGLE
-                     */
+                    /* GOOGLE */
 
                     placeId:
-                        place.id || "",
+                        place.id ||
+                        "",
 
                     name:
                         place.displayName?.text ||
@@ -935,32 +1064,49 @@ export default async function handler(req, res) {
                         place.primaryType ||
                         "",
 
+                    types:
+                        Array.isArray(place.types)
+                        ?
+                        place.types
+                        :
+                        [],
+
                     businessStatus:
                         place.businessStatus ||
                         "",
+
+
+                    /* DESCRIPTION */
 
                     description:
                         description,
 
                     editorialSummary:
-                        description,
+                        editorial,
+
+                    generativeSummary:
+                        generative,
+
+
+                    /* REVIEWS */
+
+                    reviewSummary:
+                        reviewSummary,
+
+                    reviews:
+                        reviews,
+
+
+                    /* PHOTOS */
 
                     photos:
                         photos,
 
-                    /*
-                     * Frontend can use the first
-                     * Google photo resource.
-                     */
-
                     image:
-                        photos[0] ||
-                        "",
+                        firstPhoto,
 
 
-                    /*
-                     * AMENITIES
-                     */
+                    /* AMENITIES */
 
                     amenities:
                         getAmenities(
@@ -968,9 +1114,7 @@ export default async function handler(req, res) {
                         ),
 
 
-                    /*
-                     * SERPAPI PRICE
-                     */
+                    /* SERPAPI */
 
                     price:{
 
@@ -1018,9 +1162,7 @@ export default async function handler(req, res) {
                         null,
 
 
-                    /*
-                     * MATCH INFORMATION
-                     */
+                    /* MATCH */
 
                     serpApiMatched:
                         !!best,
@@ -1040,6 +1182,56 @@ export default async function handler(req, res) {
 
 
     /* =================================================
+       NO GOOGLE RESULTS
+    ================================================= */
+
+    if(
+        !googleHotels.length
+    ){
+
+        return res.status(200).json({
+
+            success:true,
+
+            destination,
+
+            checkin,
+
+            checkout,
+
+            rooms,
+
+            adults,
+
+            children,
+
+            babies,
+
+            seniors,
+
+            guests,
+
+            count:0,
+
+            googleHotelCount:0,
+
+            serpApiHotelCount:
+                serpHotels.length,
+
+            googleApiError:
+                googleError,
+
+            serpApiError:
+                serpError,
+
+            hotels:[]
+
+        });
+
+    }
+
+
+    /* =================================================
        RESPONSE
     ================================================= */
 
@@ -1047,39 +1239,26 @@ export default async function handler(req, res) {
 
         success:true,
 
-        destination:
-            destination,
+        destination,
 
-        checkin:
-            checkin,
+        checkin,
 
-        checkout:
-            checkout,
+        checkout,
 
-        rooms:
-            rooms,
+        rooms,
 
-        adults:
-            adults,
+        adults,
 
-        children:
-            children,
+        children,
 
-        babies:
-            babies,
+        babies,
 
-        seniors:
-            seniors,
+        seniors,
 
-        guests:
-            guests,
+        guests,
 
         count:
             hotels.length,
-
-        /*
-         * Useful debugging information.
-         */
 
         googleHotelCount:
             googleHotels.length,
@@ -1087,11 +1266,13 @@ export default async function handler(req, res) {
         serpApiHotelCount:
             serpHotels.length,
 
+        googleApiError:
+            googleError,
+
         serpApiError:
             serpError,
 
-        hotels:
-            hotels
+        hotels
 
     });
 
