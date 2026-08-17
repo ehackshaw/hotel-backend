@@ -1,229 +1,957 @@
 export default async function handler(req, res) {
 
-/* =================================================  
-   CORS  
-================================================= */  
+/* =================================================
+   CORS
+================================================= */
 
-res.setHeader(  
-    "Access-Control-Allow-Origin",  
-    "*"  
-);  
+res.setHeader(
+    "Access-Control-Allow-Origin",
+    "*"
+);
 
-res.setHeader(  
-    "Access-Control-Allow-Methods",  
-    "GET, POST, OPTIONS"  
-);  
+res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, OPTIONS"
+);
 
-res.setHeader(  
-    "Access-Control-Allow-Headers",  
-    "Content-Type"  
-);  
+res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type"
+);
 
 
-/* =================================================  
-   PREFLIGHT  
-================================================= */  
+/* =================================================
+   PREFLIGHT
+================================================= */
 
-if (req.method === "OPTIONS") {  
+if (req.method === "OPTIONS") {
 
-    return res.status(200).json({  
-        success: true  
-    });  
+    return res.status(200).json({
+        success: true
+    });
 
-}  
+}
 
 
-/* =================================================  
-   METHOD CHECK  
-================================================= */  
+/* =================================================
+   METHOD CHECK
+================================================= */
 
-if (  
-    req.method !== "GET" &&  
-    req.method !== "POST"  
-) {  
+if (
+    req.method !== "GET" &&
+    req.method !== "POST"
+) {
 
-    return res.status(405).json({  
+    return res.status(405).json({
 
-        success: false,  
+        success: false,
 
-        error:  
-            "Method not allowed"  
+        error:
+            "Method not allowed"
 
-    });  
+    });
 
-}  
+}
 
 
-try {  
+try {
 
-    console.log(  
-        "================================="  
-    );  
+/* =================================================
+   REQUEST LOG
+================================================= */
 
-    console.log(  
-        "HOTEL BACKEND REQUEST"  
-    );  
+console.log(
+    "================================="
+);
 
-    console.log(  
-        "METHOD:",  
-        req.method  
-    );  
+console.log(
+    "HOTEL BACKEND REQUEST"
+);
 
-    console.log(  
-        "QUERY:",  
-        req.query  
-    );  
+console.log(
+    "METHOD:",
+    req.method
+);
 
-    console.log(  
-        "BODY:",  
-        req.body  
-    );  
+console.log(
+    "QUERY:",
+    req.query
+);
 
-    console.log(  
-        "================================="  
-    );  
+console.log(
+    "BODY:",
+    req.body
+);
 
+console.log(
+    "================================="
+);
 
-    /* =================================================  
-       INPUT  
-    ================================================= */  
 
-    const inputData =  
-        req.method === "GET"  
-            ? req.query || {}  
-            : req.body || {};  
+/* =================================================
+   INPUT
+================================================= */
 
+const inputData =
+    req.method === "GET"
+        ? req.query || {}
+        : req.body || {};
 
-    const action =  
-        inputData.action ||  
-        "";  
 
+const action =
+    inputData.action ||
+    "";
 
-    /* =================================================  
-       SERPAPI KEY CHECK  
-    ================================================= */  
 
-    if (  
-        !process.env.SERPAPI_KEY  
-    ) {  
+/* =================================================
+   SERPAPI KEY CHECK
+================================================= */
 
-        return res.status(500).json({  
+if (
+    !process.env.SERPAPI_KEY
+) {
 
-            success: false,  
+    return res.status(500).json({
 
-            error:  
-                "SERPAPI_KEY is not configured in Vercel."  
+        success: false,
 
-        });  
+        error:
+            "SERPAPI_KEY is not configured in Vercel."
 
-    }  
+    });
 
+}
 
-    /* =================================================  
-       HOTEL DETAILS  
-    ================================================= */  
 
-    if (  
-        action === "details"  
-    ) {  
+/* =================================================
+   HELPER:
+   CREATE SERPAPI URL
+================================================= */
 
-        const propertyToken =  
-            inputData.property_token;  
+function createSerpURL(
+    engine,
+    params = {}
+) {
 
+    const url =
+        new URL(
+            "https://serpapi.com/search"
+        );
 
-        if (!propertyToken) {  
 
-            return res.status(400).json({  
+    url.searchParams.set(
+        "engine",
+        engine
+    );
 
-                success: false,  
 
-                error:  
-                    "property_token is required"  
+    Object.entries(params).forEach(
+        ([key, value]) => {
 
-            });  
+            if (
+                value !== undefined &&
+                value !== null &&
+                value !== ""
+            ) {
 
-        }  
+                url.searchParams.set(
+                    key,
+                    String(value)
+                );
 
+            }
 
-        const serpURL =  
-            new URL(  
-                "https://serpapi.com/search"  
-            );  
+        }
+    );
 
 
-        serpURL.searchParams.set(  
-            "engine",  
-            "google_hotels"  
-        );  
+    url.searchParams.set(
+        "api_key",
+        process.env.SERPAPI_KEY
+    );
 
 
-        serpURL.searchParams.set(  
-            "property_token",  
-            propertyToken  
-        );  
+    return url;
 
+}
 
-        serpURL.searchParams.set(  
-            "api_key",  
-            process.env.SERPAPI_KEY  
-        );  
 
+/* =================================================
+   HELPER:
+   FETCH SERPAPI
+================================================= */
 
-        const response =  
-            await fetch(  
-                serpURL  
-            );  
+async function fetchSerpAPI(
+    url
+) {
 
+    console.log(
+        "SERPAPI REQUEST:",
+        url.toString()
+            .replace(
+                process.env.SERPAPI_KEY,
+                "HIDDEN"
+            )
+    );
 
-        const data =  
-            await response.json();  
 
+    const response =
+        await fetch(
+            url
+        );
 
-        console.log(  
-            "HOTEL DETAILS STATUS:",  
-            response.status  
-        );  
 
+    const data =
+        await response.json();
 
-        console.log(  
-            "HOTEL DETAILS RESPONSE:",  
-            data  
-        );  
 
+    console.log(
+        "SERPAPI STATUS:",
+        response.status
+    );
 
-        if (  
-            !response.ok ||  
-            data.error  
-        ) {  
 
-            return res.status(  
-                response.ok  
-                    ? 500  
-                    : response.status  
-            ).json({  
+    if (
+        !response.ok ||
+        data.error
+    ) {
 
-                success: false,  
+        throw new Error(
+            data.error ||
+            `SerpAPI returned ${response.status}`
+        );
 
-                error:  
-                    data.error ||  
-                    `SerpAPI returned ${response.status}`  
+    }
 
-            });  
 
-        }  
+    return data;
 
+}
 
-        return res.status(200).json({  
 
-            success: true,  
+/* =================================================
+   HELPER:
+   EXTRACT PHOTOS FROM A SECTION
 
-            hotel:  
-                data.property ||  
-                data  
+   Supports both:
 
-        });  
+   section.images[]
 
-    }  
+   AND
+
+   section.photos[]
+================================================= */
+
+function extractPhotosFromSection(
+    section
+) {
+
+    if (!section) {
+
+        return [];
+
+    }
+
+
+    const sectionTitle =
+        section.title ||
+        "";
+
+
+    let images = [];
+
+
+    if (
+        Array.isArray(
+            section.images
+        )
+    ) {
+
+        images =
+            section.images;
+
+    }
+    else if (
+        Array.isArray(
+            section.photos
+        )
+    ) {
+
+        images =
+            section.photos;
+
+    }
+
+
+    return images
+        .filter(
+            image =>
+                image &&
+                (
+                    image.original_image ||
+                    image.image ||
+                    image.photo_url ||
+                    image.thumbnail ||
+                    image.thumbnail_url
+                )
+        )
+        .map(
+            image => ({
+
+                section:
+                    sectionTitle,
+
+                thumbnail:
+                    image.thumbnail ||
+                    image.thumbnail_url ||
+                    null,
+
+                image:
+                    image.image ||
+                    image.photo_url ||
+                    image.original_image ||
+                    image.thumbnail ||
+                    image.thumbnail_url ||
+                    null,
+
+                original_image:
+                    image.original_image ||
+                    image.photo_url ||
+                    image.image ||
+                    image.thumbnail ||
+                    image.thumbnail_url ||
+                    null,
+
+                width:
+                    image.width ||
+                    null,
+
+                height:
+                    image.height ||
+                    null,
+
+                alt:
+                    image.alt ||
+                    null,
+
+                source:
+                    image.source ||
+                    null,
+
+                source_link:
+                    image.source_link ||
+                    image.source_url ||
+                    null,
+
+                posted_on:
+                    image.posted_on ||
+                    null
+
+            })
+        );
+
+}
+
+
+/* =================================================
+   HELPER:
+   DEDUPLICATE PHOTOS
+================================================= */
+
+function deduplicatePhotos(
+    photos
+) {
+
+    const uniquePhotos =
+        new Map();
+
+
+    photos.forEach(
+        photo => {
+
+            if (!photo) {
+
+                return;
+
+            }
+
+
+            const key =
+                photo.original_image ||
+                photo.image ||
+                photo.thumbnail;
+
+
+            if (
+                key &&
+                !uniquePhotos.has(key)
+            ) {
+
+                uniquePhotos.set(
+                    key,
+                    photo
+                );
+
+            }
+
+        }
+    );
+
+
+    return Array.from(
+        uniquePhotos.values()
+    );
+
+}
+
+
+/* =================================================
+   HELPER:
+   FETCH ALL HOTEL PHOTOS
+
+   IMPORTANT:
+
+   Google Hotels Photos pagination is
+   SECTION-SPECIFIC.
+
+   Each section can have its own
+   next_page_token.
+
+   We therefore keep following every
+   section token until no more tokens
+   exist.
+================================================= */
+
+async function fetchAllHotelPhotos(
+    propertyToken
+) {
+
+    if (!propertyToken) {
+
+        return {
+
+            photos: [],
+
+            photo_count: 0,
+
+            sections: [],
+
+            has_more: false
+
+        };
+
+    }
+
+
+    console.log(
+        "================================="
+    );
+
+    console.log(
+        "FETCHING COMPLETE HOTEL GALLERY"
+    );
+
+    console.log(
+        "PROPERTY TOKEN:",
+        propertyToken
+    );
+
+    console.log(
+        "================================="
+    );
+
+
+    const allPhotos = [];
+
+
+    const sectionInformation =
+        new Map();
+
+
+    /*
+       Tokens already processed.
+
+       This prevents duplicate requests
+       if SerpAPI happens to return the
+       same pagination token again.
+    */
+
+    const processedTokens =
+        new Set();
+
+
+    /*
+       Tokens waiting to be fetched.
+
+       Each token is associated with the
+       hotel property, and the API itself
+       knows which photo section it belongs
+       to.
+    */
+
+    const tokensToProcess = [];
+
+
+    /* =================================================
+       FIRST PHOTO PAGE
+    ================================================= */
+
+    const firstURL =
+        createSerpURL(
+            "google_hotels_photos",
+            {
+                property_token:
+                    propertyToken
+            }
+        );
+
+
+    const firstData =
+        await fetchSerpAPI(
+            firstURL
+        );
+
+
+    console.log(
+        "INITIAL PHOTO RESPONSE RECEIVED"
+    );
+
+
+    /* =================================================
+       PROCESS PHOTO RESPONSE
+    ================================================= */
+
+    function processPhotoResponse(
+        data
+    ) {
+
+        const sections =
+            Array.isArray(
+                data.sections
+            )
+                ? data.sections
+                : [];
+
+
+        sections.forEach(
+            section => {
+
+                if (!section) {
+
+                    return;
+
+                }
+
+
+                const title =
+                    section.title ||
+                    "";
+
+
+                const total =
+                    Number(
+                        section.total
+                    ) || 0;
+
+
+                /*
+                   Save section information.
+                */
+
+                if (
+                    title
+                ) {
+
+                    sectionInformation.set(
+                        title,
+                        {
+                            title,
+                            total
+                        }
+                    );
+
+                }
+
+
+                /* =====================================
+                   GET PHOTOS
+
+                   Supports:
+                   - images[]
+                   - photos[]
+                ===================================== */
+
+                const sectionPhotos =
+                    extractPhotosFromSection(
+                        section
+                    );
+
+
+                allPhotos.push(
+                    ...sectionPhotos
+                );
+
+
+                /* =====================================
+                   GET SECTION PAGINATION TOKEN
+                ===================================== */
+
+                const sectionNextToken =
+                    section.next_page_token ||
+                    null;
+
+
+                if (
+                    sectionNextToken &&
+                    !processedTokens.has(
+                        sectionNextToken
+                    )
+                ) {
+
+                    tokensToProcess.push(
+                        sectionNextToken
+                    );
+
+                }
+
+            }
+        );
+
+
+        /*
+           Some responses may expose a
+           top-level pagination token too.
+        */
+
+        const topLevelToken =
+            data.serpapi_pagination
+                ?.next_page_token ||
+            data.next_page_token ||
+            null;
+
+
+        if (
+            topLevelToken &&
+            !processedTokens.has(
+                topLevelToken
+            )
+        ) {
+
+            tokensToProcess.push(
+                topLevelToken
+            );
+
+        }
+
+    }
+
+
+    processPhotoResponse(
+        firstData
+    );
+
+
+    /* =================================================
+       FETCH EVERY PHOTO PAGE
+    ================================================= */
+
+    while (
+        tokensToProcess.length > 0
+    ) {
+
+        const nextPageToken =
+            tokensToProcess.shift();
+
+
+        if (
+            !nextPageToken
+        ) {
+
+            continue;
+
+        }
+
+
+        if (
+            processedTokens.has(
+                nextPageToken
+            )
+        ) {
+
+            continue;
+
+        }
+
+
+        processedTokens.add(
+            nextPageToken
+        );
+
+
+        console.log(
+            "FETCHING NEXT PHOTO PAGE:",
+            processedTokens.size
+        );
+
+
+        const nextURL =
+            createSerpURL(
+                "google_hotels_photos",
+                {
+                    property_token:
+                        propertyToken,
+
+                    next_page_token:
+                        nextPageToken
+                }
+            );
+
+
+        const nextData =
+            await fetchSerpAPI(
+                nextURL
+            );
+
+
+        processPhotoResponse(
+            nextData
+        );
+
+    }
+
+
+    /* =================================================
+       DEDUPLICATE
+    ================================================= */
+
+    const finalPhotos =
+        deduplicatePhotos(
+            allPhotos
+        );
+
+
+    /* =================================================
+       SECTION SUMMARY
+    ================================================= */
+
+    const sections =
+        Array.from(
+            sectionInformation.values()
+        );
+
+
+    /* =================================================
+       FINAL PHOTO RESULT
+    ================================================= */
+
+    console.log(
+        "================================="
+    );
+
+    console.log(
+        "COMPLETE HOTEL GALLERY FINISHED"
+    );
+
+    console.log(
+        "PROPERTY:",
+        propertyToken
+    );
+
+    console.log(
+        "RAW PHOTOS:",
+        allPhotos.length
+    );
+
+    console.log(
+        "UNIQUE PHOTOS:",
+        finalPhotos.length
+    );
+
+    console.log(
+        "SECTIONS:",
+        sections.length
+    );
+
+    console.log(
+        "PAGES FETCHED:",
+        processedTokens.size + 1
+    );
+
+    console.log(
+        "================================="
+    );
+
+
+    return {
+
+        photos:
+            finalPhotos,
+
+        photo_count:
+            finalPhotos.length,
+
+        sections:
+            sections,
+
+        pages_fetched:
+            processedTokens.size + 1,
+
+        has_more:
+            false
+
+    };
+
+}
+
+
+/* =================================================
+   HOTEL DETAILS
+================================================= */
+
+if (
+    action === "details"
+) {
+
+    const propertyToken =
+        inputData.property_token;
+
+
+    if (!propertyToken) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            error:
+                "property_token is required"
+
+        });
+
+    }
+
+
+    try {
+
+        /* =============================================
+           GET HOTEL DETAILS
+        ============================================= */
+
+        const serpURL =
+            createSerpURL(
+                "google_hotels",
+                {
+                    property_token:
+                        propertyToken
+                }
+            );
+
+
+        const data =
+            await fetchSerpAPI(
+                serpURL
+            );
+
+
+        console.log(
+            "HOTEL DETAILS RESPONSE:",
+            data
+        );
+
+
+        const hotel =
+            data.property ||
+            data;
+
+
+        /* =============================================
+           GET COMPLETE PHOTO GALLERY
+        ============================================= */
+
+        let photoData = {
+
+            photos: [],
+
+            photo_count: 0,
+
+            sections: [],
+
+            pages_fetched: 0,
+
+            has_more: false
+
+        };
+
+
+        try {
+
+            photoData =
+                await fetchAllHotelPhotos(
+                    propertyToken
+                );
+
+        }
+        catch (
+            photoError
+        ) {
+
+            console.error(
+                "HOTEL DETAILS PHOTO ERROR:",
+                photoError
+            );
+
+        }
+
+
+        /* =============================================
+           RETURN DETAILS + ALL PHOTOS
+        ============================================= */
+
+        return res.status(200).json({
+
+            success: true,
+
+            hotel: {
+
+                ...hotel,
+
+                photos:
+                    photoData.photos,
+
+                images:
+                    photoData.photos,
+
+                photo_count:
+                    photoData.photo_count,
+
+                photo_sections:
+                    photoData.sections,
+
+                photo_pages_fetched:
+                    photoData.pages_fetched
+
+            }
+
+        });
+
+    }
+    catch (
+        error
+    ) {
+
+        return res.status(500).json({
+
+            success: false,
+
+            error:
+                error?.message ||
+                "Unable to load hotel details"
+
+        });
+
+    }
+
+}
+
 
 /* =================================================
    HOTEL PHOTOS
@@ -251,267 +979,161 @@ if (
     }
 
 
-    /* =============================================
-       OPTIONAL PAGINATION
-    ============================================= */
+    try {
 
-    const nextPageToken =
-        inputData.next_page_token ||
-        null;
+        /*
+           IMPORTANT:
 
+           We now automatically retrieve
+           every available photo page.
 
-    /* =============================================
-       SERPAPI HOTEL PHOTOS URL
-    ============================================= */
+           The frontend no longer needs to
+           manually request next_page_token.
+        */
 
-    const serpURL =
-        new URL(
-            "https://serpapi.com/search"
-        );
-
-
-    serpURL.searchParams.set(
-        "engine",
-        "google_hotels_photos"
-    );
+        const photoData =
+            await fetchAllHotelPhotos(
+                propertyToken
+            );
 
 
-    serpURL.searchParams.set(
-        "property_token",
-        propertyToken
-    );
+        return res.status(200).json({
 
+            success: true,
 
-    if (
-        nextPageToken
-    ) {
+            property_token:
+                propertyToken,
 
-        serpURL.searchParams.set(
-            "next_page_token",
-            nextPageToken
-        );
+            photos:
+                photoData.photos,
+
+            images:
+                photoData.photos,
+
+            photo_count:
+                photoData.photo_count,
+
+            sections:
+                photoData.sections,
+
+            pages_fetched:
+                photoData.pages_fetched,
+
+            next_page_token:
+                null,
+
+            has_more:
+                false
+
+        });
 
     }
+    catch (
+        error
+    ) {
 
-
-    serpURL.searchParams.set(
-        "api_key",
-        process.env.SERPAPI_KEY
-    );
-
-
-    /* =============================================
-       LOG REQUEST WITHOUT API KEY
-    ============================================= */
-
-    console.log(
-        "FETCHING HOTEL PHOTOS:"
-    );
-
-
-    console.log(
-        serpURL.toString()
-            .replace(
-                process.env.SERPAPI_KEY,
-                "HIDDEN"
-            )
-    );
-
-
-    /* =============================================
-       FETCH PHOTOS
-    ============================================= */
-
-    const response =
-        await fetch(
-            serpURL
+        console.error(
+            "HOTEL PHOTOS ERROR:",
+            error
         );
 
 
-    const data =
-        await response.json();
-
-
-    /* =============================================
-       LOG RESPONSE
-    ============================================= */
-
-    console.log(
-        "HOTEL PHOTOS STATUS:",
-        response.status
-    );
-
-
-    console.log(
-        "HOTEL PHOTOS RESPONSE:",
-        data
-    );
-
-
-    /* =============================================
-       SERPAPI ERROR
-    ============================================= */
-
-    if (
-        !response.ok ||
-        data.error
-    ) {
-
-        return res.status(
-            response.ok
-                ? 500
-                : response.status
-        ).json({
+        return res.status(500).json({
 
             success: false,
 
             error:
-                data.error ||
-                `SerpAPI returned ${response.status}`
+                error?.message ||
+                "Unable to retrieve hotel photos"
+
+        });
+
+    }
+
+}
+
+
+/* =================================================
+   HOTEL REVIEWS
+================================================= */
+
+if (
+    action === "reviews"
+) {
+
+    const propertyToken =
+        inputData.property_token;
+
+
+    if (!propertyToken) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            error:
+                "property_token is required"
 
         });
 
     }
 
 
-    /* =============================================
-       GET PHOTO SECTIONS
-    ============================================= */
-
-    const sections =
-        Array.isArray(
-            data.sections
-        )
-            ? data.sections
-            : [];
+    const nextPageToken =
+        inputData.next_page_token ||
+        null;
 
 
-    /* =============================================
-       FLATTEN ALL PHOTOS
-    ============================================= */
-
-    const photos = [];
+    const sortBy =
+        inputData.sort_by ||
+        "2";
 
 
-    sections.forEach(
-        section => {
-
-            if (!section) {
-                return;
-            }
+    const language =
+        inputData.hl ||
+        "en";
 
 
-            const sectionTitle =
-                section.title ||
-                "";
+    const serpURL =
+        createSerpURL(
+            "google_hotels_reviews",
+            {
 
+                property_token:
+                    propertyToken,
 
-            const images =
-                Array.isArray(
-                    section.images
-                )
-                    ? section.images
-                    : [];
+                sort_by:
+                    String(sortBy),
 
+                hl:
+                    language,
 
-            images.forEach(
-                image => {
+                next_page_token:
+                    nextPageToken,
 
-                    if (!image) {
-                        return;
-                    }
+                category_token:
+                    inputData.category_token,
 
-
-                    photos.push({
-
-                        section:
-                            sectionTitle,
-
-                        thumbnail:
-                            image.thumbnail ||
-                            null,
-
-                        image:
-                            image.image ||
-                            null,
-
-                        original_image:
-                            image.original_image ||
-                            image.image ||
-                            image.thumbnail ||
-                            null,
-
-                        width:
-                            image.width ||
-                            null,
-
-                        height:
-                            image.height ||
-                            null,
-
-                        alt:
-                            image.alt ||
-                            null,
-
-                        source:
-                            image.source ||
-                            null,
-
-                        source_link:
-                            image.source_link ||
-                            null
-
-                    });
-
-                }
-            );
-
-        }
-    );
-
-
-    /* =============================================
-       REMOVE DUPLICATE PHOTOS
-    ============================================= */
-
-    const uniquePhotos =
-        new Map();
-
-
-    photos.forEach(
-        photo => {
-
-            const key =
-                photo.original_image ||
-                photo.image ||
-                photo.thumbnail;
-
-
-            if (
-                key &&
-                !uniquePhotos.has(key)
-            ) {
-
-                uniquePhotos.set(
-                    key,
-                    photo
-                );
+                source_number:
+                    inputData.source_number
 
             }
-
-        }
-    );
-
-
-    const finalPhotos =
-        Array.from(
-            uniquePhotos.values()
         );
 
 
-    /* =============================================
-       PAGINATION
-    ============================================= */
+    const data =
+        await fetchSerpAPI(
+            serpURL
+        );
+
+
+    const reviews =
+        Array.isArray(
+            data.reviews
+        )
+            ? data.reviews
+            : [];
+
 
     const pagination =
         data.serpapi_pagination ||
@@ -523,16 +1145,6 @@ if (
         null;
 
 
-    /* =============================================
-       RETURN PHOTOS
-    ============================================= */
-
-    console.log(
-        "HOTEL PHOTO COUNT:",
-        finalPhotos.length
-    );
-
-
     return res.status(200).json({
 
         success: true,
@@ -540,756 +1152,730 @@ if (
         property_token:
             propertyToken,
 
-        photos:
-            finalPhotos,
+        reviews:
+            reviews,
 
-        photo_count:
-            finalPhotos.length,
+        review_count:
+            reviews.length,
 
         next_page_token:
             newNextPageToken,
 
         has_more:
-            !!newNextPageToken
+            !!newNextPageToken,
+
+        search_metadata:
+            data.search_metadata ||
+            null
 
     });
 
 }
-    /* =================================================  
-       HOTEL REVIEWS  
-    ================================================= */  
 
-    if (  
-        action === "reviews"  
-    ) {  
 
-        /* =============================================  
-           PROPERTY TOKEN  
-        ============================================= */  
+/* =================================================
+   HOTEL SEARCH INPUT
+================================================= */
 
-        const propertyToken =  
-            inputData.property_token;  
+const destination =
+    inputData.destination;
 
 
-        if (!propertyToken) {  
+const checkIn =
+    inputData.check_in;
 
-            return res.status(400).json({  
 
-                success: false,  
+const checkOut =
+    inputData.check_out;
 
-                error:  
-                    "property_token is required"  
 
-            });  
+const rooms =
+    Math.max(
+        1,
+        Number(
+            inputData.rooms
+        ) || 1
+    );
 
-        }  
 
+const adults =
+    Math.max(
+        1,
+        Number(
+            inputData.adults
+        ) || 1
+    );
 
-        /* =============================================  
-           OPTIONAL PAGINATION  
-        ============================================= */  
 
-        const nextPageToken =  
-            inputData.next_page_token ||  
-            null;  
+const children =
+    Math.max(
+        0,
+        Number(
+            inputData.children
+        ) || 0
+    );
 
 
-        /* =============================================  
-           OPTIONAL SORT  
-             
-           1 = Most helpful  
-           2 = Most recent  
-           3 = Highest score  
-           4 = Lowest score  
-             
-           Default:  
-           Most recent  
-        ============================================= */  
+const seniors =
+    Math.max(
+        0,
+        Number(
+            inputData.seniors
+        ) || 0
+    );
 
-        const sortBy =  
-            inputData.sort_by ||  
-            "2";  
 
+/* =================================================
+   VALIDATION
+================================================= */
 
-        /* =============================================  
-           OPTIONAL LANGUAGE  
-        ============================================= */  
+if (!destination) {
 
-        const language =  
-            inputData.hl ||  
-            "en";  
+    return res.status(400).json({
 
+        success: false,
 
-        /* =============================================  
-           SERPAPI REVIEWS URL  
-        ============================================= */  
+        error:
+            "destination is required"
 
-        const serpURL =  
-            new URL(  
-                "https://serpapi.com/search"  
-            );  
+    });
 
+}
 
-        serpURL.searchParams.set(  
-            "engine",  
-            "google_hotels_reviews"  
-        );  
 
+if (!checkIn) {
 
-        serpURL.searchParams.set(  
-            "property_token",  
-            propertyToken  
-        );  
+    return res.status(400).json({
 
+        success: false,
 
-        serpURL.searchParams.set(  
-            "sort_by",  
-            String(sortBy)  
-        );  
+        error:
+            "check_in is required"
 
+    });
 
-        serpURL.searchParams.set(  
-            "hl",  
-            language  
-        );  
+}
 
 
-        /* =============================================  
-           NEXT PAGE  
-        ============================================= */  
+if (!checkOut) {
 
-        if (  
-            nextPageToken  
-        ) {  
+    return res.status(400).json({
 
-            serpURL.searchParams.set(  
-                "next_page_token",  
-                nextPageToken  
-            );  
+        success: false,
 
-        }  
+        error:
+            "check_out is required"
 
+    });
 
-        /* =============================================  
-           OPTIONAL CATEGORY  
-        ============================================= */  
+}
 
-        if (  
-            inputData.category_token  
-        ) {  
 
-            serpURL.searchParams.set(  
-                "category_token",  
-                inputData.category_token  
-            );  
+console.log(
+    "HOTEL SEARCH:",
+    {
 
-        }  
+        destination,
 
+        checkIn,
 
-        /* =============================================  
-           OPTIONAL REVIEW SOURCE  
-        ============================================= */  
+        checkOut,
 
-        if (  
-            inputData.source_number  
-        ) {  
+        rooms,
 
-            serpURL.searchParams.set(  
-                "source_number",  
-                inputData.source_number  
-            );  
+        adults,
 
-        }  
+        children,
 
+        seniors
 
-        /* =============================================  
-           SERPAPI KEY  
-        ============================================= */  
+    }
+);
 
-        serpURL.searchParams.set(  
-            "api_key",  
-            process.env.SERPAPI_KEY  
-        );  
 
+/* =================================================
+   SERPAPI HOTEL SEARCH
+================================================= */
 
-        /* =============================================  
-           LOG REQUEST WITHOUT API KEY  
-        ============================================= */  
+async function fetchHotels(
+    pageToken = null
+) {
 
-        console.log(  
-            "FETCHING HOTEL REVIEWS:"  
-        );  
+    const serpURL =
+        createSerpURL(
+            "google_hotels",
+            {
 
-        console.log(  
-            serpURL.toString()  
-                .replace(  
-                    process.env.SERPAPI_KEY,  
-                    "HIDDEN"  
-                )  
-        );  
+                q:
+                    destination,
 
+                check_in_date:
+                    checkIn,
 
-        /* =============================================  
-           FETCH REVIEWS  
-        ============================================= */  
+                check_out_date:
+                    checkOut,
 
-        const response =  
-            await fetch(  
-                serpURL  
-            );  
+                adults:
+                    adults,
 
+                children:
+                    children,
 
-        const data =  
-            await response.json();  
+                rooms:
+                    rooms,
 
+                next_page_token:
+                    pageToken
 
-        /* =============================================  
-           LOG RESPONSE  
-        ============================================= */  
+            }
+        );
 
-        console.log(  
-            "HOTEL REVIEWS STATUS:",  
-            response.status  
-        );  
 
+    const data =
+        await fetchSerpAPI(
+            serpURL
+        );
 
-        console.log(  
-            "HOTEL REVIEWS RESPONSE:",  
-            data  
-        );  
 
+    return data;
 
-        /* =============================================  
-           SERPAPI ERROR  
-        ============================================= */  
+}
 
-        if (  
-            !response.ok ||  
-            data.error  
-        ) {  
 
-            return res.status(  
-                response.ok  
-                    ? 500  
-                    : response.status  
-            ).json({  
+/* =================================================
+   GET HOTEL RESULTS
+================================================= */
 
-                success: false,  
+let allHotels = [];
 
-                error:  
-                    data.error ||  
-                    `SerpAPI returned ${response.status}`  
 
-            });  
+let data =
+    await fetchHotels();
 
-        }  
 
+console.log(
+    "FIRST SERPAPI RESPONSE:",
+    data
+);
 
-        /* =============================================  
-           GET REVIEWS  
-             
-           SerpAPI returns actual review objects  
-           directly inside data.reviews  
-        ============================================= */  
 
-        const reviews =  
-            Array.isArray(  
-                data.reviews  
-            )  
-                ? data.reviews  
-                : [];  
+if (
+    Array.isArray(
+        data.properties
+    )
+) {
 
+    allHotels.push(
+        ...data.properties
+    );
 
-        /* =============================================  
-           PAGINATION INFORMATION  
-        ============================================= */  
+}
 
-        const pagination =  
-            data.serpapi_pagination ||  
-            {};  
 
+/* =================================================
+   GET ADDITIONAL HOTEL PAGES
 
-        const newNextPageToken =  
-            pagination.next_page_token ||  
-            null;  
+   Keeping your existing 2 additional
+   pages.
+================================================= */
 
+let nextPageToken =
+    data.serpapi_pagination
+        ?.next_page_token;
 
-        /* =============================================  
-           RETURN REVIEWS  
-        ============================================= */  
 
-        return res.status(200).json({  
+let page =
+    0;
 
-            success: true,  
 
-            property_token:  
-                propertyToken,  
+while (
+    nextPageToken &&
+    page < 2
+) {
 
-            reviews:  
-                reviews,  
+    const nextData =
+        await fetchHotels(
+            nextPageToken
+        );
 
-            review_count:  
-                reviews.length,  
 
-            next_page_token:  
-                newNextPageToken,  
+    if (
+        Array.isArray(
+            nextData.properties
+        )
+    ) {
 
-            has_more:  
-                !!newNextPageToken,  
+        allHotels.push(
+            ...nextData.properties
+        );
 
-            search_metadata:  
-                data.search_metadata ||  
-                null  
+    }
 
-        });  
 
-    }  
+    nextPageToken =
+        nextData
+            .serpapi_pagination
+            ?.next_page_token;
 
 
-    /* =================================================  
-       HOTEL SEARCH INPUT  
-    ================================================= */  
+    page++;
 
-    const destination =  
-        inputData.destination;  
+}
 
 
-    const checkIn =  
-        inputData.check_in;  
+/* =================================================
+   REMOVE DUPLICATE HOTELS
+================================================= */
 
+const uniqueHotels =
+    new Map();
 
-    const checkOut =  
-        inputData.check_out;  
 
+allHotels.forEach(
+    hotel => {
 
-    const rooms =  
-        Math.max(  
-            1,  
-            Number(  
-                inputData.rooms  
-            ) || 1  
-        );  
+        if (!hotel) {
 
+            return;
 
-    const adults =  
-        Math.max(  
-            1,  
-            Number(  
-                inputData.adults  
-            ) || 1  
-        );  
+        }
 
 
-    const children =  
-        Math.max(  
-            0,  
-            Number(  
-                inputData.children  
-            ) || 0  
-        );  
+        const key =
+            hotel.property_token ||
+            hotel.name;
 
 
-    const seniors =  
-        Math.max(  
-            0,  
-            Number(  
-                inputData.seniors  
-            ) || 0  
-        );  
+        if (
+            key &&
+            !uniqueHotels.has(
+                key
+            )
+        ) {
 
+            uniqueHotels.set(
+                key,
+                hotel
+            );
 
-    /* =================================================  
-       VALIDATION  
-    ================================================= */  
+        }
 
-    if (!destination) {  
+    }
+);
 
-        return res.status(400).json({  
 
-            success: false,  
+allHotels =
+    Array.from(
+        uniqueHotels.values()
+    );
 
-            error:  
-                "destination is required"  
 
-        });  
+/* =================================================
+   FILTER HOTELS
+================================================= */
 
-    }  
+allHotels =
+    allHotels.filter(
+        hotel => {
 
+            if (!hotel) {
 
-    if (!checkIn) {  
+                return false;
 
-        return res.status(400).json({  
+            }
 
-            success: false,  
 
-            error:  
-                "check_in is required"  
+            return (
+                hotel.name ||
+                hotel.property_token
+            );
 
-        });  
+        }
+    );
 
-    }  
 
+console.log(
+    "HOTELS BEFORE PHOTO ENRICHMENT:",
+    allHotels.length
+);
 
-    if (!checkOut) {  
 
-        return res.status(400).json({  
+/* =================================================
+   FETCH COMPLETE PHOTO GALLERIES
+   FOR EVERY HOTEL
+=================================================
 
-            success: false,  
+   IMPORTANT:
 
-            error:  
-                "check_out is required"  
+   This is the part that fixes the
+   9-image problem.
 
-        });  
+   Every hotel is now sent through:
 
-    }  
+   google_hotels_photos
 
+   and every available pagination page
+   is followed.
 
-    console.log(  
-        "HOTEL SEARCH:",  
-        {  
-            destination,  
-            checkIn,  
-            checkOut,  
-            rooms,  
-            adults,  
-            children,  
-            seniors  
-        }  
-    );  
+================================================= */
 
 
-    /* =================================================  
-       SERPAPI HOTEL SEARCH  
-    ================================================= */  
+/*
+   Limit simultaneous hotel photo requests.
 
-    async function fetchHotels(  
-        pageToken = null  
-    ) {  
+   We don't fire 30+ hotels at the exact
+   same time because that can overwhelm
+   the Vercel function and your SerpAPI
+   request rate.
 
-        const serpURL =  
-            new URL(  
-                "https://serpapi.com/search"  
-            );  
+   This does NOT limit the number of
+   photos per hotel.
 
+   It only limits how many hotels are
+   being processed simultaneously.
+*/
 
-        serpURL.searchParams.set(  
-            "engine",  
-            "google_hotels"  
-        );  
+const PHOTO_CONCURRENCY =
+    3;
 
 
-        serpURL.searchParams.set(  
-            "q",  
-            destination  
-        );  
+async function enrichHotelsWithPhotos(
+    hotels
+) {
 
+    let currentIndex =
+        0;
 
-        serpURL.searchParams.set(  
-            "check_in_date",  
-            checkIn  
-        );  
 
+    async function worker() {
 
-        serpURL.searchParams.set(  
-            "check_out_date",  
-            checkOut  
-        );  
+        while (
+            true
+        ) {
 
+            const index =
+                currentIndex++;
 
-        serpURL.searchParams.set(  
-            "adults",  
-            String(adults)  
-        );  
 
+            if (
+                index >=
+                hotels.length
+            ) {
 
-        serpURL.searchParams.set(  
-            "children",  
-            String(children)  
-        );  
+                return;
 
+            }
 
-        serpURL.searchParams.set(  
-            "rooms",  
-            String(rooms)  
-        );  
 
+            const hotel =
+                hotels[index];
 
-        if (  
-            pageToken  
-        ) {  
 
-            serpURL.searchParams.set(  
-                "next_page_token",  
-                pageToken  
-            );  
+            if (
+                !hotel ||
+                !hotel.property_token
+            ) {
 
-        }  
+                hotel.photos =
+                    Array.isArray(
+                        hotel?.images
+                    )
+                        ? hotel.images
+                        : [];
 
 
-        serpURL.searchParams.set(  
-            "api_key",  
-            process.env.SERPAPI_KEY  
-        );  
+                hotel.images =
+                    hotel.photos;
 
 
-        const response =  
-            await fetch(  
-                serpURL  
-            );  
+                hotel.photo_count =
+                    hotel.photos.length;
 
 
-        const data =  
-            await response.json();  
+                return;
 
+            }
 
-        console.log(  
-            "SERPAPI STATUS:",  
-            response.status  
-        );  
 
+            console.log(
+                "================================="
+            );
 
-        if (  
-            !response.ok  
-        ) {  
+            console.log(
+                "FETCHING HOTEL PHOTOS",
+                `${index + 1}/${hotels.length}`
+            );
 
-            throw new Error(  
-                `SerpAPI returned ${response.status}`  
-            );  
+            console.log(
+                "HOTEL:",
+                hotel.name
+            );
 
-        }  
+            console.log(
+                "PROPERTY TOKEN:",
+                hotel.property_token
+            );
 
+            console.log(
+                "================================="
+            );
 
-        if (  
-            data.error  
-        ) {  
 
-            throw new Error(  
-                data.error  
-            );  
+            try {
 
-        }  
+                const photoData =
+                    await fetchAllHotelPhotos(
+                        hotel.property_token
+                    );
 
 
-        return data;  
+                /*
+                   Replace the limited
+                   google_hotels images with
+                   the complete photo gallery.
+                */
 
-    }  
+                hotel.photos =
+                    photoData.photos;
 
 
-    /* =================================================  
-       GET HOTEL RESULTS  
-    ================================================= */  
+                hotel.images =
+                    photoData.photos;
 
-    let allHotels = [];  
 
+                hotel.photo_count =
+                    photoData.photo_count;
 
-    let data =  
-        await fetchHotels();  
 
+                hotel.photo_sections =
+                    photoData.sections;
 
-    console.log(  
-        "FIRST SERPAPI RESPONSE:",  
-        data  
-    );  
 
+                hotel.photo_pages_fetched =
+                    photoData.pages_fetched;
 
-    if (  
-        Array.isArray(  
-            data.properties  
-        )  
-    ) {  
 
-        allHotels.push(  
-            ...data.properties  
-        );  
+                console.log(
+                    "HOTEL COMPLETE PHOTO COUNT:",
+                    hotel.name,
+                    photoData.photo_count
+                );
 
-    }  
+            }
+            catch (
+                photoError
+            ) {
 
+                console.error(
+                    "PHOTO FETCH FAILED:",
+                    hotel.name
+                );
 
-    /* =================================================  
-       GET ADDITIONAL PAGES  
-    ================================================= */  
+                console.error(
+                    photoError
+                );
 
-    let nextPageToken =  
-        data.serpapi_pagination  
-            ?.next_page_token;  
 
+                /*
+                   If the dedicated photo API
+                   fails, keep the original
+                   hotel images instead of
+                   destroying them.
+                */
 
-    let page =  
-        0;  
+                const fallbackImages =
+                    Array.isArray(
+                        hotel.images
+                    )
+                        ? hotel.images
+                        : [];
 
 
-    while (  
-        nextPageToken &&  
-        page < 2  
-    ) {  
+                hotel.photos =
+                    fallbackImages;
 
-        const nextData =  
-            await fetchHotels(  
-                nextPageToken  
-            );  
 
+                hotel.images =
+                    fallbackImages;
 
-        if (  
-            Array.isArray(  
-                nextData.properties  
-            )  
-        ) {  
 
-            allHotels.push(  
-                ...nextData.properties  
-            );  
+                hotel.photo_count =
+                    fallbackImages.length;
 
-        }  
 
+                hotel.photo_error =
+                    photoError?.message ||
+                    "Photo gallery unavailable";
 
-        nextPageToken =  
-            nextData  
-                .serpapi_pagination  
-                ?.next_page_token;  
+            }
 
+        }
 
-        page++;  
+    }
 
-    }  
 
+    const workers = [];
 
-    /* =================================================  
-       REMOVE DUPLICATES  
-    ================================================= */  
 
-    const uniqueHotels =  
-        new Map();  
+    const workerCount =
+        Math.min(
+            PHOTO_CONCURRENCY,
+            hotels.length
+        );
 
 
-    allHotels.forEach(  
-        hotel => {  
+    for (
+        let i = 0;
+        i < workerCount;
+        i++
+    ) {
 
-            if (!hotel) return;  
+        workers.push(
+            worker()
+        );
 
+    }
 
-            const key =  
-                hotel.property_token ||  
-                hotel.name;  
 
+    await Promise.all(
+        workers
+    );
 
-            if (  
-                key &&  
-                !uniqueHotels.has(key)  
-            ) {  
 
-                uniqueHotels.set(  
-                    key,  
-                    hotel  
-                );  
+    return hotels;
 
-            }  
+}
 
-        }  
-    );  
 
+/* =================================================
+   ENRICH EVERY HOTEL WITH COMPLETE GALLERY
+================================================= */
 
-    allHotels =  
-        Array.from(  
-            uniqueHotels.values()  
-        );  
+allHotels =
+    await enrichHotelsWithPhotos(
+        allHotels
+    );
 
 
-    /* =================================================  
-       FILTER HOTELS  
-    ================================================= */  
+/* =================================================
+   FINAL PHOTO TOTAL
+================================================= */
 
-    allHotels =  
-        allHotels.filter(  
-            hotel => {  
+const totalPhotos =
+    allHotels.reduce(
+        (
+            total,
+            hotel
+        ) => {
 
-                if (!hotel) {  
+            return (
+                total +
+                (
+                    Number(
+                        hotel.photo_count
+                    ) || 0
+                )
+            );
 
-                    return false;  
+        },
+        0
+    );
 
-                }  
 
+console.log(
+    "================================="
+);
 
-                return (  
-                    hotel.name ||  
-                    hotel.property_token  
-                );  
+console.log(
+    "FINAL HOTEL COUNT:",
+    allHotels.length
+);
 
-            }  
-        );  
+console.log(
+    "TOTAL HOTEL PHOTOS:",
+    totalPhotos
+);
 
+console.log(
+    "================================="
+);
 
-    /* =================================================  
-       FINAL RESPONSE  
-    ================================================= */  
 
-    console.log(  
-        "FINAL HOTEL COUNT:",  
-        allHotels.length  
-    );  
+/* =================================================
+   FINAL RESPONSE
+================================================= */
 
+return res.status(200).json({
 
-    return res.status(200).json({  
+    success: true,
 
-        success: true,  
+    destination:
+        destination,
 
-        destination:  
-            destination,  
+    check_in:
+        checkIn,
 
-        check_in:  
-            checkIn,  
+    check_out:
+        checkOut,
 
-        check_out:  
-            checkOut,  
+    rooms:
+        rooms,
 
-        rooms:  
-            rooms,  
+    adults:
+        adults,
 
-        adults:  
-            adults,  
+    children:
+        children,
 
-        children:  
-            children,  
+    seniors:
+        seniors,
 
-        seniors:  
-            seniors,  
+    total_hotels:
+        allHotels.length,
 
-        properties:  
-            allHotels  
+    total_photos:
+        totalPhotos,
 
-    });  
+    properties:
+        allHotels
 
-}  
-catch (error) {  
+});
 
-    console.error(  
-        "================================="  
-    );  
 
-    console.error(  
-        "HOTEL BACKEND ERROR:"  
-    );  
+}
+catch (
+    error
+) {
 
-    console.error(  
-        error  
-    );  
+console.error(
+    "================================="
+);
 
-    console.error(  
-        "================================="  
-    );  
+console.error(
+    "HOTEL BACKEND ERROR:"
+);
 
+console.error(
+    error
+);
 
-    return res.status(500).json({  
+console.error(
+    "================================="
+);
 
-        success: false,  
 
-        error:  
-            "Hotel search failed",  
+return res.status(500).json({
 
-        details:  
-            error?.message ||  
-            String(error)  
+    success: false,
 
-    });  
+    error:
+        "Hotel search failed",
+
+    details:
+        error?.message ||
+        String(error)
+
+});
 
 }
 
